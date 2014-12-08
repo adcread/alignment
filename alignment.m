@@ -32,9 +32,27 @@ for i=1:users
     end
 end
 
-[d1p, d1c, d2p, d2c] = degreesOfFreedom(txAntennas, rxAntennas, alpha, beta);
+d1p = 0;                                                                    % User 1 private DoF
+d2p = 0;
 
+d1c1 = 0;                                                                   % User 1 common DoF calculated by User 1
+d1c2 = 0;                                                                   % User 1 common DoF calculated by User 2
+d2c1 = 0;
+c2c2 = 0;
+d1c = 0;
+d2c = 0;
 
+% User 1 determines DoF using the absolute maximum of d1c as side
+% information
+[d1p, d1c, d2p, d2c] = universalDegreesOfFreedom2UserMIMOIC(txAntennas, rxAntennas, alpha, beta);
+
+% User 2 determines DoF using User 1's d2c limit as side information
+
+[d2p, d2c, d1c2] = degreesOfFreedom2UserMIMOIC(2, txAntennas, rxAntennas, alpha, beta, d2c1);
+
+[d1p, d1c, d2c1] = degreesOfFreedom2UserMIMOIC(1, txAntennas, rxAntennas, alpha, beta, d1c2);
+
+[d2p, d2c, d1c2] = degreesOfFreedom2UserMIMOIC(2, txAntennas, rxAntennas, alpha, beta, d2c1);
 
 for i =1:users                                                                 
     for j = 1:users
