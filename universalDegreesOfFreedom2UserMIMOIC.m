@@ -25,7 +25,7 @@ c11 = min([M(2) N(2)]) * alpha(2,2);
 c12 = g(N(2),alpha(1,2),M(1),beta(2,1),m(2,1),1,pos((M(2)-N(1))));
 c13 = f(N(2),alpha(1,2),M(1),alpha(2,2),m(2,1));
 c14 = f(N(2),alpha(1,2),M(1),alpha(2,2),M(2));
-target = [0.5 1 0.5 1];
+target = [-1 -1 -1 -1];
 constraints = [c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14];
 coefficients = [alpha(1,1) 0 0 0; 
     0 alpha(1,1) 0 0; 
@@ -38,13 +38,16 @@ coefficients = [alpha(1,1) 0 0 0;
     0 0 0 alpha(2,2); 
     0 alpha(1,1) 0 0;
     0 0 alpha(2,2) alpha(2,2); 
-    0 alpha(1,1) 0 alpha(2,2);
-    0 alpha(1,1) alpha(2,2) 0; 
+    0 alpha(1,1) alpha(2,2) 0;
+    0 alpha(1,1) 0 alpha(2,2); 
     0 alpha(1,1) alpha(2,2) alpha(2,2)];
 
-options = optimset('Display', 'iter', 'Diagnostics', 'on','LargeScale', 'on', 'Simplex', 'on', 'Algorithm','interior-point');
+options = optimset('Display', 'iter', 'Diagnostics', 'on', 'Simplex', 'on', 'Algorithm','simplex');
 
-[result] = linprog(target, coefficients,constraints,[],[],[],(ones(4,1)*limit),[],options);
+lowerBounds = zeros(1,4);
+upperBounds = [c1 c2 c8 c9];
+
+[result, sumDoF, exitflag] = linprog(target, coefficients,constraints,[],[],lowerBounds,upperBounds,[],options);
 userPrivate = result(1);
 userCommon = result(2);
 crossPrivate = result(3);

@@ -14,8 +14,8 @@ rxAntennas = [3 2];                                                             
 fading = zeros(users);
 
 symmetricChannel = true;
-    crossChannelFade = 1;                                              % To generate cross-user fading crossChannelFade = 2^(<desired alpha>*log2(directChannelFade))
-    directChannelFade = 1.1;
+    crossChannelFade = 63.09573445;                                              % To generate cross-user fading crossChannelFade = 2^(<desired alpha>*log2(directChannelFade))
+    directChannelFade = 1000;
     
 if (symmetricChannel == true)                                               % If the channel is symmetric (i.e. the cross-user links are all equal)
     fading = ones(users) * crossChannelFade;                                    % then generate the fading channel matrix. Otherwise explicitly define it
@@ -25,7 +25,7 @@ if (symmetricChannel == true)                                               % If
 else                                                                        % Explicit definition of the channel fade matrix.
 end
 
-fading = [1 0.12411 ; 1.12653 1];
+% fading = [1 0.12411 ; 1.12653 1];
 
 transmitPower = ones(1,users);                                                  % Set all transmitters to equal, unity power output.
 

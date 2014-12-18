@@ -2,7 +2,6 @@ function [ userPrivate, userCommon, crossCommon ] = degreesOfFreedom2UserMIMOIC(
 %DEGREESOFFREEDOM Summary of this function goes here
 %   Detailed explanation goes here
 
-limit = max([M N]);
 users = size(alpha,1);
 
 for i = 1:users
@@ -26,7 +25,7 @@ c6 = f(N(user),alpha(cross,user),M(cross),alpha(user,user),m(user,cross));
 c7 = f(N(user),alpha(cross,user),M(cross),alpha(user,user),M(user));
 c8 = crossCommonIn;                                                         % crossCommonIn is the public DoF limit from the other user.
 
-target = [1 1 0];
+target = [-1 -1 -1];
 constraints = [c1 c2 c3 c4 c5 c6 c7 c8];
 coefficients = [alpha(user,user) 0 0 ; 
     0 alpha(user,user) 0 ; 
@@ -37,9 +36,12 @@ coefficients = [alpha(user,user) 0 0 ;
     alpha(user,user) alpha(user,user) alpha(cross,cross);
     0 0 1];
 
-options = optimset('Display', 'final', 'Diagnostics', 'off','LargeScale', 'off', 'Simplex', 'on', 'Algorithm','Simplex');
+options = optimset('Display', 'iter', 'Diagnostics', 'off', 'Simplex', 'on', 'Algorithm','Simplex');
 
-[result] = linprog(target, coefficients,constraints,[],[],[],(ones(3,1)*limit),[],options);
+lowerBounds = [0 0 0];
+upperBounds = [c1 c2 min([c3 c8])];
+
+[result] = linprog(target, coefficients,constraints,[],[],lowerBounds,upperBounds,[],options);
 userPrivate = result(1);
 userCommon = result(2);
 crossCommon = result(3);
