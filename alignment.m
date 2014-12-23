@@ -48,9 +48,9 @@ d2c = 0;
 iteration = 0;
 
 while ((d1c1 >= 0) && ((d1c1 ~=d1c2) || (d2c1 ~=d2c2)))
-    [d1p, d1c1, d2c1] = degreesOfFreedom2UserMIMOIC_LGP(1, txAntennas, rxAntennas, alpha, beta, d2c2, 1);
+    [d1p, d1c1, d2c1] = degreesOfFreedom2UserMIMOIC_LGP(1, 100, txAntennas, rxAntennas, alpha, beta, d2c2, 1);
 
-    [d2p, d2c2, d1c2] = degreesOfFreedom2UserMIMOIC_LGP(2, txAntennas, rxAntennas, alpha, beta, d1c1, 1);
+    [d2p, d2c2, d1c2] = degreesOfFreedom2UserMIMOIC_LGP(2, 100, txAntennas, rxAntennas, alpha, beta, d1c1, 1);
     iteration = iteration + 1;
     d1c = min([d1c1 d1c2]);
     d2c = min([d2c1 d2c2]);

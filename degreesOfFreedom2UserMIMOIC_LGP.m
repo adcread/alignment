@@ -16,8 +16,9 @@ else
     cross = 1;
 end
 
-g1 = 3;
+g1 = m(user,user);
 g2 = crossCommonIn;
+g3 = f(N(user),beta(user,cross),m(user,cross),alpha(user,user),pos((M(user)-N(cross))))*alpha(user,user);
 
 c1 = f(N(user),beta(user,cross),m(user,cross),alpha(user,user),pos((M(user)-N(cross))))*alpha(user,user);
 c2 = min([N(user) M(user) N(cross)])*alpha(user,user);
@@ -27,25 +28,26 @@ c5 = g(N(user),alpha(cross,user),M(cross),beta(user,cross),m(user,cross),1,pos((
 c6 = f(N(user),alpha(cross,user),M(cross),alpha(user,user),m(user,cross));
 c7 = f(N(user),alpha(cross,user),M(cross),alpha(user,user),M(user));
 
-target = [0 0 0 0 1 0 weight];                                              % weight determines the severity of reducing the other users's common rate
+target = [0 0 0 0 1 0 weight 0 2];                                              % weight determines the severity of reducing the other users's common rate
 ineqConstraints = [c1 c2 c3 c4 c5 c6 c7];
-% Coefficients = d1p d2c d2c y1p y1m y2p y2m
-ineqCoefficients = [alpha(user,user) 0 0 0 0 0 0; 
-    0 alpha(user,user) 0 0 0 0 0; 
-    0 0 alpha(cross,cross) 0 0 0 0;
-    alpha(user,user) alpha(user,user) 0 0 0 0 0; 
-    alpha(user,user) 0 alpha(cross,cross) 0 0 0 0;
-    0 alpha(user,user) alpha(cross,cross) 0 0 0 0; 
-    alpha(user,user) alpha(user,user) alpha(cross,cross) 0 0 0 0];
+% Coefficients = d1p d2c d2c y1p y1m y2p y2m y3p y3m
+ineqCoefficients = [alpha(user,user) 0 0 0 0 0 0 0 0; 
+    0 alpha(user,user) 0 0 0 0 0 0 0; 
+    0 0 alpha(cross,cross) 0 0 0 0 0 0;
+    alpha(user,user) alpha(user,user) 0 0 0 0 0 0 0; 
+    alpha(user,user) 0 alpha(cross,cross) 0 0 0 0 0 0;
+    0 alpha(user,user) alpha(cross,cross) 0 0 0 0 0 0; 
+    alpha(user,user) alpha(user,user) alpha(cross,cross) 0 0 0 0 0 0];
 
-eqConstraints = [g1 g2];
-eqCoefficients = [1 1 0 -1 1 0 0;
-    0 0 1 0 0 -1 1];
+eqConstraints = [g1 g2 g3];
+eqCoefficients = [1 1 0 -1 1 0 0 0 0;
+    0 0 1 0 0 -1 1 0 0;
+    1 0 0 0 0 0 0 -1 1];
 
-options = optimset('Display', 'none', 'Diagnostics', 'off', 'Simplex', 'on', 'Algorithm','Simplex', 'MaxIter', num2str(maxIter));
+options = optimset('Display', 'none', 'Diagnostics', 'off', 'Simplex', 'on', 'Algorithm','Simplex', 'MaxIter', maxIter);
 
-lowerBounds = [0 0 0 0 0 0 0];
-upperBounds = [c1 c2 min([c3 crossCommonIn]) Inf Inf Inf Inf];
+lowerBounds = [0 0 0 0 0 0 0 0 0];
+upperBounds = [c1 c2 min([c3 crossCommonIn]) Inf Inf Inf Inf Inf Inf];
 
 [result] = linprog(target, ineqCoefficients,ineqConstraints,eqCoefficients,eqConstraints,lowerBounds,upperBounds,[],options);
 userPrivate = result(1);

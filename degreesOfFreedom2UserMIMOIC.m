@@ -26,8 +26,8 @@ c7 = f(N(user),alpha(cross,user),M(cross),alpha(user,user),M(user));
 c8 = crossCommonIn;                                                         % crossCommonIn is the public DoF limit from the other user.
 
 target = [-1 -1 -1];
-constraints = [c1 c2 c3 c4 c5 c6 c7 c8];
-coefficients = [alpha(user,user) 0 0 ; 
+ineqConstraints = [c1 c2 c3 c4 c5 c6 c7 c8];
+ineqCoefficients = [alpha(user,user) 0 0 ; 
     0 alpha(user,user) 0 ; 
     0 0 alpha(cross,cross) ;
     alpha(user,user) alpha(user,user) 0 ; 
@@ -36,12 +36,14 @@ coefficients = [alpha(user,user) 0 0 ;
     alpha(user,user) alpha(user,user) alpha(cross,cross);
     0 0 1];
 
+
+
 options = optimset('Display', 'iter', 'Diagnostics', 'off', 'Simplex', 'on', 'Algorithm','Simplex');
 
 lowerBounds = [0 0 0];
 upperBounds = [c1 c2 min([c3 c8])];
 
-[result] = linprog(target, coefficients,constraints,[],[],lowerBounds,upperBounds,[],options);
+[result] = linprog(target, ineqCoefficients,ineqConstraints,[],[],lowerBounds,upperBounds,[],options);
 userPrivate = result(1);
 userCommon = result(2);
 crossCommon = result(3);
