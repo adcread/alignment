@@ -3,32 +3,6 @@
 
 initialisationConstants;
 
-SNR = zeros(users);
-
-maxIter = 100;
-
-txAntennas = [3,2];
-rxAntennas = [3,2];
-
-for i = 1:users
-    SNR(i,:) = sqrt(transmitPower(i)) * fading(i,:);
-end
-
-if (symmetricChannel == true)
-    rho = directChannelFade;
-else
-    rho = 2;                                                                % Determine a baseline 'rho' to be used as the base for alpha calculations.
-end
-
-alpha = log2(SNR)/log2(rho);
-beta = zeros(users);
-
-for i=1:users
-    for j = 1:users
-        beta(i,j) = max([0 (alpha(i,i)-alpha(i,j))]);
-    end
-end
-
 d1p = 0;                                                                    % User 1 private DoF
 d2p = 0;
 
