@@ -11,27 +11,6 @@
 
 initialisationConstants;                                                    % Initialise the simulation parameters.
 
-SNR = zeros(users);
-
-for i = 1:users
-    SNR(i,:) = sqrt(transmitPower(i)) * fading(i,:);
-end
-
-if (symmetricChannel == true)
-    rho = directChannelFade;
-else
-    rho = 2;                                                                % Determine a baseline 'rho' to be used as the base for alpha calculations.
-end
-
-alpha = log2(SNR)/log2(rho);
-beta = zeros(users);
-
-for i=1:users
-    for j = 1:users
-        beta(i,j) = max([0 (alpha(i,i)-alpha(i,j))]);
-    end
-end
-
 d1p = 0;                                                                    % User 1 private DoF
 d2p = 0;
 
@@ -62,23 +41,19 @@ while ((d1c1 >= 0) && ((d1c1 ~=d1c2) || (d2c1 ~=d2c2)))
 end
 
 
-for i =1:users                                                                 
-    for j = 1:users
-        H{i,j} = randomChannel(rxAntennas(j),txAntennas(i));
-    end
-end
+[U, sigma, V] = eigenchannel(H);                                            % Eigenchannel decomposition
 
-[U, sigma, V] = eigenchannel(H);
-
-covariancePri = cell(1,users);
+covariancePri = cell(1,users);                                              % set up cells for covariance matrices
 covariancePub = cell(1,users);
 
-directionPri = cell(users,users);
+directionPri = cell(users,users);                   
 directionPub = cell(users,users);
+
+cardinality = zeros(users);
 
 for i = 1:users
     for j = 1:users
-        cardinality(i,j) = min([rxAntennas(j) txAntennas(i)]);
+        cardinality(i,j) = min([rxAntennas(j) txAntennas(i)]);              % cardinality = maximum number of signalling dimensions (smallest number of antennas in channel)
     end
 end
 
@@ -87,20 +62,20 @@ eigenvalues = cell(users,users);
 for i= 1:users
     for j = 1:users
         eigenvalues{i,j} = zeros(1,cardinality(i,j));
-        eigenvalues{i,j} = eigs(H{i,j}*H{i,j}.');
+        eigenvalues{i,j} = eigs(H{i,j}*H{i,j}.');                           % creates list of eigenvalues for each channel between users
     end
 end
 
 for i=1:users
     for j = 1:users
         if (i ~= j)
-            [covariancePri{i}, covariancePub{i}] = covarianceHK(SNR(i,j), H{i,j});
+            [covariancePri{i}, covariancePub{i}] = covarianceHK(SNR(i,j), H{i,j}); % calculates covariance matrices for private and public messages 
         end
         for k1 = 1:txAntennas(i)
             for k2 = 1:txAntennas(i)
                 if (k1 == k2)
-                    if (k1 <= cardinality(i))
-                        r = txAntennas(i) * (1 + SNR(i,j) * eigenvalues{i,j}(k1));
+                    if (k1 <= cardinality(i,j))
+                        r = txAntennas(i) * (1 + SNR(i,j) * eigenvalues{i,j}(k1));  % [Dij]_kk = (1/M_i - 1/r_ik) 1 =< k =<m_ij
                         directionPri{i,j}(k1,k2) = 1/r;
                         directionPub{i,j}(k1,k2) = (1/txAntennas(i) - directionPri{1,j}(k1,k2));
                     else
@@ -126,14 +101,20 @@ receivedMessage = cell(1,users);
 privateCodeword{1} = gaussianCodeword(txAntennas(1),1);
 privateCodeword{2} = gaussianCodeword(txAntennas(2),1);
 
-publicCodeword{1} = gaussianCodeword(cardinality(1),1);
-publicCodeword{2} = gaussianCodeword(cardinality(2),1);
+% privateCodeword{1} = qammod(privateMessageStream{1},4,0,'gray');
+% privateCodeword{2} = qammod(privateMessageStream{2},4,0,'gray');
+
+publicCodeword{1} = gaussianCodeword(cardinality(1,2),1);
+publicCodeword{2} = gaussianCodeword(cardinality(2,1),1);
+
+% publicCodeword{1} = qammod(publicMessageStream{1},4,0,'gray');
+% publicCodeword{2} = qammod(publicMessageStream{2},4,0,'gray');
 
 privateMessage{1} = U{1,2} * sqrt(directionPri{1,2}) * privateCodeword{1};
 privateMessage{2} = U{2,1} * sqrt(directionPri{2,1}) * privateCodeword{2};
 
-publicMessage{1} = U{1,2}(:,1:cardinality) * sqrt(directionPub{1,2}) * publicCodeword{1};
-publicMessage{2} = U{2,1}(:,1:cardinality) * sqrt(directionPub{1,2}) * publicCodeword{1};
+publicMessage{1} = U{1,2}(:,1:cardinality(1,2)) * sqrt(directionPub{1,2}) * publicCodeword{1};
+publicMessage{2} = U{2,1}(:,1:cardinality(2,1)) * sqrt(directionPub{1,2}) * publicCodeword{1};
 
 transmittedMessage{1} = privateMessage{1} + publicMessage{1};
 transmittedMessage{2} = privateMessage{2} + publicMessage{2};
@@ -145,9 +126,10 @@ end
         
 for i = 1:users
     for j = 1:users
-        receivedMessage{i} = receivedMessage{i} + ( H{j,i} * transmittedMessage{j} );
+        receivedMessage{i} = receivedMessage{i} + ( H{j,i} * transmittedMessage{j} );   % Yi = sum_j Hji * xj
     end
 end
+
 
 
 

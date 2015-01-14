@@ -14,45 +14,8 @@ rxAntennas = [3 2];                             % N = number of receive antennas
 
 maxIter = 100;
 
-fading = zeros(users);
+alpha = [1 .4; .4 1];
 
-symmetricChannel = true;
-    crossChannelFade = 63.09573445;             % To generate cross-user fading crossChannelFade = 2^(<desired alpha>*log2(directChannelFade))
-    directChannelFade = 1000;
-    
-if (symmetricChannel == true)                   % If the channel is symmetric (i.e. the cross-user links are all equal)
-    fading = ones(users) * crossChannelFade;    % then generate the fading channel matrix. Otherwise explicitly define it
-    for i = 1:users
-        fading(i,i) = directChannelFade;
-    end
-else      
-end
-
-% fading = [1 0.12411 ; 1.12653 1];             % Explicit definition of the channel fade matrix.
-
-transmitPower = ones(1,users);                  % Set all transmitters to equal, unity power output.
-
-H = cell(users,users);
-
-for i = 1:users                                 % Create the empty channel matrix
-    for j = 1:users
-        H{i,j} = zeros(rxAntennas(i),txAntennas(j));
-    end
-end                                                
-
-SNR = zeros(users);
-
-for i = 1:users
-    SNR(i,:) = sqrt(transmitPower(i)) * fading(i,:);
-end
-
-if (symmetricChannel == true)
-    rho = directChannelFade;
-else
-    rho = 2;                                                                % Determine a baseline 'rho' to be used as the base for alpha calculations.
-end
-
-alpha = [1 .25; 1.25 1];
 beta = zeros(users);
 
 for i=1:users
@@ -61,3 +24,10 @@ for i=1:users
     end
 end
 
+baselinePower = 2;
+
+
+
+fading = 
+
+H = generateChannel(users, txAntennas, rxAntennas,
