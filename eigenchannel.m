@@ -19,7 +19,7 @@ function [ U, H_eig, V ] = eigenchannel( H )
 
     for i = 1:K
         for j = 1:K
-            [V{i,j}, H_eig{i,j}, U{i,j}] = svd(H{i,j});
+            [U{i,j}, H_eig{i,j}, V{i,j}] = svd(H{i,j});
         end
     end
 end

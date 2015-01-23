@@ -24,10 +24,16 @@ for i=1:users
     end
 end
 
-baselinePower = 2;
+baselinePower = 40;
 
+H = generateChannel(users, txAntennas, rxAntennas, 'kronecker');            % Generates Kronecker channels with unit channel gain
 
+scaleFactor = zeros(users);
 
-fading = 
+for i=1:users
+    for j = 1:users
+        scaleFactor(i,j) = sqrt(10^(log10(baselinePower)*alpha(i,j)));      % scales the channel to achieve the desired SNR
+        H{i,j} = scaleFactor(i,j) * H{i,j};
+    end
+end
 
-H = generateChannel(users, txAntennas, rxAntennas,
