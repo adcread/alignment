@@ -25,6 +25,7 @@ for i=1:users
 end
 
 baselinePower = 40;
+baselineNoise = 1;
 
 H = generateChannel(users, txAntennas, rxAntennas, 'kronecker');            % Generates Kronecker channels with unit channel gain
 

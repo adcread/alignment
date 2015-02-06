@@ -20,7 +20,7 @@ H{2,1} = H{1,2}';
 
 for i = 1:users
     for j = 1:users
-        SNR(i,j) = trace(H{i,j}*H{i,j}');
+        SNR(i,j) = trace(H{i,j}*H{i,j}') / baselineNoise;
     end
 end
 
@@ -115,6 +115,14 @@ dofSplitPri{1} = [0 0 1];
 dofSplitPub{1} = [0 0 0];
 dofSplitPri{2} = [0.4 0.4];
 dofSplitPub{2} = [0.6 0.6];
+
+for user = 1:users
+    codebookPri{user} = cell(1,txAntennas(user));
+    for stream = 1:txAntennas(user)
+        codeboookPri{user}{stream} = generateCodebook(dofSplitPri{user}(stream), SNR(user,user),baselineNoise);
+    end
+end
+
 
 [U, sigma, V] = eigenchannel(H);  % Eigenchannel decomposition
 
@@ -228,9 +236,19 @@ end
 %     receivedMessage{i} = receivedMessage{i} + circSymAWGN(rxAntennas(i),1,1);
 % end
 
-receiver1Subspace = H{1,1} * V{1,2}(:,3);
+subspace = cell(1,2);
+projection = cell(1,2);
+orthogonal = cell(1,2);
+equaliser = cell(1,2);
 
-[receiver1Projection, receiver1Orthogonal] = project(receivedMessage{1},receiver1Subspace);
+subspace{1} = H{1,1} * V{1,2}(:,3);
+subspace{1} = H{1,1} * V{1,2}(:,3);
+
+[projection{1}, orthogonal{1}] = project(receivedMessage{1},subspace{1});
+
+equaliser{1} = (H{1,1}'*H{1,1})\ H{1,1}';
+
+equaliser{1} * projection{1}
 
 
 
