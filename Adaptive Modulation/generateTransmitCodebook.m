@@ -1,4 +1,4 @@
-function [ codebook ] = generateCodebook( DoF, signalPower, noisePower )
+function [ codebook, capacity ] = generateCodebook( DoF, signalPower, noisePower )
 %GENERATECODEBOOK Creates a complex Gaussian codebook of length N
 %   Calculate the SNR of the link to be coded for and the desired DoF to be
 %   achieved, then create a codebook of that size and return it.
@@ -37,6 +37,8 @@ for n = 1:length(SNRtable)
 end
 
 M = 2^adaptiveQAMChannelCapacity(n);
+capacity = adaptiveQAMChannelCapacity(n);
+
 if M >=4
     alphabet = 0:(M-1);
 
@@ -48,5 +50,7 @@ if M >=4
 else
     display(['Unable to create codebook: SNR too low']);
     codebook = 0;
+end
+
 end
 

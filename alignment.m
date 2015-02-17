@@ -113,16 +113,15 @@ end
 
 dofSplitPri{1} = [0 0 1];
 dofSplitPub{1} = [0 0 0];
-dofSplitPri{2} = [0.0 0.0];
+dofSplitPri{2} = [0.4 0.4];
 dofSplitPub{2} = [0.6 0.6];
 
 for user = 1:users
     for stream = 1:txAntennas(user)
-        codebookPri{user}{stream} = generateCodebook(dofSplitPri{user}(stream), SNR(user,user),baselineNoise);
-        codebookPub{user}{stream} = generateCodebook(dofSplitPub{user}(stream), SNR(user,user),baselineNoise);        
+       [codebookPri{user}{stream},codebookIndexPri{user}(stream)] = generateTransmitCodebook(dofSplitPri{user}(stream), SNR(user,user),baselineNoise);
+       [codebookPub{user}{stream},codebookIndexPub{user}(stream)] = generateTransmitCodebook(dofSplitPub{user}(stream), SNR(user,user),baselineNoise);        
     end
 end
-
 
 [U, sigma, V] = eigenchannel(H);  % Eigenchannel decomposition
 
@@ -145,23 +144,6 @@ for i= 1:users
     end
 end
 
-% for i=1:users
-%     for j = 1:users
-%         if (i ~= j)
-%             [covariancePri{i}, covariancePub{i}] = covarianceHK(SNR(i,j), H{i,j}); % calculates covariance matrices for private and public messages
-%             for k = 1:txAntennas(i)
-%                 if (k <= cardinality(i,j))
-%                     r = txAntennas(i) * (1 + SNR(i,j) * eigenvalues{i,j}(k));  % [Dij]_kk = (1/M_i - 1/r_ik) 1 =< k =<m_ij
-%                     directionPri{i,j}(k,k) = r^-1;
-%                     directionPub{i,j}(k,k) = (1/txAntennas(i) - directionPri{i,j}(k,k));
-%                 else
-%                     directionPri{i,j}(k,k) = 1 / txAntennas(i);
-%                 end
-%             end
-%         end
-%     end
-% end
-
 % Determine the direction matrices from the covariance matrices of the
 % transmitted messages as per Gomadam, eq. 
 
@@ -180,8 +162,8 @@ end
 privateMessage = cell(1,users);
 publicMessage = cell(1,users);
 
-privateCodeword = cell(1,users);
-publicCodeword = cell(1,users);
+privateSymbol = cell(1,users);
+publicSymbol = cell(1,users);
 
 transmittedMessage = cell(1,users);
 receivedMessage = cell(1,users);
@@ -189,26 +171,35 @@ receivedMessage = cell(1,users);
 % Preallocate memory for codewords created
 
 for i = 1:users
-    privateCodeword{i} = zeros(txAntennas(i),1);
-    publicCodeword{i} = zeros(txAntennas(i),1);
+    privateSymbol{i} = zeros(txAntennas(i),1);
+    publicSymbol{i} = zeros(txAntennas(i),1);
 end
 
 % Create codewords with DoF splitting as dertermined by algorithm above
+
+privateCodeword = zeros(users, max(txAntennas));
+publicCodeword = zeros(users, max(txAntennas));
 
 for user = 1:users
     for stream = 1:txAntennas(user)
         MPri = length(codebookPri{user}{stream});
         MPub = length(codebookPub{user}{stream});
-        privateCodeword{user}(stream) = codebookPri{user}{stream}(randi(MPri));
-        publicCodeword{user}(stream) = codebookPub{user}{stream}(randi(MPub));
+        if (MPri > 1)
+            privateCodeword(user,stream) = (randi(MPri));
+            privateSymbol{user}(stream) = codebookPri{user}{stream}(privateCodeword(user,stream));
+        end
+        if (MPub > 1)
+            publicCodeword(user,stream) = (randi(MPub));
+            publicSymbol{user}(stream) = codebookPub{user}{stream}(publicCodeword(user,stream));
+        end
     end
 end
 
-privateMessage{1} = V{1,2} * sqrt(directionPri{1,2}) * privateCodeword{1};
-privateMessage{2} = V{2,1} * sqrt(directionPri{2,1}) * privateCodeword{2};
+privateMessage{1} = V{1,2} * sqrt(directionPri{1,2}) * privateSymbol{1};
+privateMessage{2} = V{2,1} * sqrt(directionPri{2,1}) * privateSymbol{2};
 
-publicMessage{1} = V{1,2} * sqrt(directionPub{1,2}) * publicCodeword{1};
-publicMessage{2} = V{2,1} * sqrt(directionPub{2,1}) * publicCodeword{2};
+publicMessage{1} = V{1,2} * sqrt(directionPub{1,2}) * publicSymbol{1};
+publicMessage{2} = V{2,1} * sqrt(directionPub{2,1}) * publicSymbol{2};
 
 transmittedMessage{1} = privateMessage{1} + publicMessage{1};
 transmittedMessage{2} = privateMessage{2} + publicMessage{2};
@@ -234,10 +225,56 @@ projection = cell(1,2);
 orthogonal = cell(1,2);
 equaliser = cell(1,2);
 
-subspace{1} = H{1,1} * V{1,2}(:,3);
-subspace{1} = H{1,1} * V{1,2}(:,3);
 
-[projection{1}, orthogonal{1}] = project(receivedMessage{1},subspace{1});
+
+% User decoding
+
+% for rxUser = 1:users
+%     
+%     dataPub{rxUser} = zeros(1,rxAntennas(user));
+%     dataPri{rxUser} = zeros(1,rxAntennas(user));
+%     
+%     % Stores the status of if everything has been decoded from that user.
+%     
+%     decoded{rxUser} = zeros(1,users);
+%         
+%     % while not all paths have been decoded
+%     while (min(decoded{rxUser})==0)
+%         for txUser = 1:users
+%             if (rxAntennas(rxUser)>txAntennas(txUser))
+%         
+%         
+            
+
+% User 1 decoding
+
+projectedInt{1} = pseudoInverse(H{1,1}) * receivedMessage{1};
+
+equalisedInt{1} = pseudoInverse(sqrt(directionPub{2,1})) * pseudoInverse(sigma{2,1}) * U{2,1}' * projectedInt{1};
+
+
+
+% User 2 decoding
+
+equalisedPub{2} = pseudoInverse(sqrt(directionPub{2,1})) * V{2,1}' * pseudoInverse(H{2,2}) * receivedMessage{2};
+
+for i = 1:length(receivedMessage{2})
+    [dataPub{2}(i), decodedPub{2}(i)] = maximumLikelihoodQAMDecoder(equalisedPub{2}(i),codebookIndexPub{2}(i));
+end
+
+isolatedPri{2} = receivedMessage{2} - (H{2,2} * V{2,1} * sqrt(directionPub{2,1}) * decodedPub{2}.');
+
+equalisedPri{2} = pseudoInverse(sqrt(directionPri{2,1})) * V{2,1}' * pseudoInverse(H{2,2}) * isolatedPri{2};
+
+for i = 1:length(receivedMessage{2})
+    [dataPri{2}(i), decodedPri{2}(i)] = maximumLikelihoodQAMDecoder(equalisedPri{2}(i),codebookIndexPri{2}(i));
+end
+
+celldisp(dataPri)
+privateCodeword
+
+celldisp(dataPub)
+publicCodeword
 
 
 

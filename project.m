@@ -3,7 +3,7 @@ function [ projection, orthogonalComponent ] = project( vector, subspace )
 %subspace matrix
 %   Detailed explanation goes here
 
-    projection = (dot(vector,subspace) / dot(subspace,subspace)) * subspace;
+    projection = (dot(vector,subspace) / dot(subspace,subspace));
     orthogonalComponent = vector - projection;
     
 end
