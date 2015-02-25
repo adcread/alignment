@@ -13,8 +13,8 @@ addpath('Equalisation');
 
 users = 2;                                      % K = number of users in network
 
-txAntennas = [4 2];                             % M = number of transmit antennas
-rxAntennas = [4 2];                             % N = number of receive antennas
+txAntennas = [3 2];                             % M = number of transmit antennas
+rxAntennas = [3 2];                             % N = number of receive antennas
 
 maxIter = 100;
 
