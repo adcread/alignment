@@ -6,7 +6,7 @@ awgnChannelCapacity = log2(1 + 10.^(SNR/10));
 
 
 squareQAMChannelCapacity = floor(log2((1 + (3*scalarSNR)/23.4423)));
-crossQAMChannelCapacity =(log2(((32/31)* (3*scalarSNR + 1)/23.4423)));
+crossQAMChannelCapacity = ((log2(((32/31)* (3*scalarSNR + 1)/23.4423))));
 
 plot(SNR,awgnChannelCapacity);
 hold on;
