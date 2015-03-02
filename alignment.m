@@ -111,10 +111,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = PublicDoF(2)/cardinality(2,1);
 end
 
-dofSplitPri{1} = [0 0 1];
-dofSplitPub{1} = [0 0 0];
-dofSplitPri{2} = [0.4 0.4];
-dofSplitPub{2} = [0.6 0.6];
+dofSplitPri{1} = [0.4 0.4 1];
+dofSplitPub{1} = [0.4 0.4 0];
+dofSplitPri{2} = [0.2 0.2];
+dofSplitPub{2} = [0.2 0.2];
 
 for user = 1:users
     for stream = 1:txAntennas(user)
@@ -220,12 +220,7 @@ for i = 1:users
     receivedMessage{i} = receivedMessage{i} + circSymAWGN(rxAntennas(i),1,1);
 end
 
-subspace = cell(1,2);
-projection = cell(1,2);
-orthogonal = cell(1,2);
-equaliser = cell(1,2);
-
-            
+           
 % Begin User 1 decoding
 
 publicInterference = cell(users,1);
@@ -261,7 +256,7 @@ for rxUser = 1:users
 
                 if (max(dofSplitPub{rxUser}) > 0)
 
-                    equalisedPub{rxUser} = pseudoInverse(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pseudoInverse(H{rxUser,rxUser}) * commonSubspace{rxUser};
+                    equalisedPub{rxUser} = pseudoInverse(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pseudoInverse(H{rxUser,rxUser}) * commonSubspace{rxUser};
 
                     % decode the message and symbols sent by user A
 
@@ -333,7 +328,7 @@ for rxUser = 1:users
 
                 if (max(dofSplitPub{rxUser}) > 0)
 
-                    equalisedPub{rxUser} = pseudoInverse(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pseudoInverse(H{rxUser,rxUser}) * commonSubspace{rxUser};
+                    equalisedPub{rxUser} = pseudoInverse(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pseudoInverse(H{rxUser,rxUser}) * commonSubspace{rxUser};
 
                     % decode the message and symbols sent by user A
 
