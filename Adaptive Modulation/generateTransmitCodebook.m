@@ -1,56 +1,65 @@
-function [ codebook, capacity ] = generateCodebook( DoF, signalPower, noisePower )
+function [ codebook, capacity ] = generateTransmitCodebook( DoF, signalPower, noisePower )
 %GENERATECODEBOOK Creates a complex Gaussian codebook of length N
 %   Calculate the SNR of the link to be coded for and the desired DoF to be
 %   achieved, then create a codebook of that size and return it.
 
-SNR = signalPower / noisePower;
-SNRdB = DoF * (10*log10(SNR));
+if DoF > 0;
 
-% Create the table to perform SNR lookups from in dB
-SNRtable = 0:0.1:100;
 
-% Calculate the maximum constellation sizes for square and cross
-% constellations (diamond constellations can be added as a separate line at
-% a later date if required)
+    SNR =  signalPower / noisePower;
+    SNRdB = 10*log10(SNR);
 
-squareConstellationSizes = 2:2:100;
-crossConstellationSizes = 1:2:99;
+    % Create the table to perform SNR lookups from in dB
+    SNRtable = 0:0.1:100;
 
-squareConstellationSNRs = 10*log10((((2.^squareConstellationSizes)-1)*23.4423)/3);
-crossConstellationSNRs = 10*log10((((2.^crossConstellationSizes)-1)*23.4423)/3);
+    % Calculate the maximum constellation sizes for square and cross
+    % constellations (diamond constellations can be added as a separate line at
+    % a later date if required)
 
-squareQAMChannelCapacity = zeros(1,length(SNR));
+    squareConstellationSizes = 2:2:100;
+    crossConstellationSizes = 1:2:99;
 
-for snr = 1:length(SNRtable)
-    squareQAMChannelCapacity(snr) = findLargestConstellation(SNRtable(snr),squareConstellationSNRs,squareConstellationSizes);
-    crossQAMChannelCapacity(snr) = findLargestConstellation(SNRtable(snr),crossConstellationSNRs,crossConstellationSizes);
-end
+    squareConstellationSNRs = 10*log10((((2.^squareConstellationSizes)-1)*23.4423)/3);
+    crossConstellationSNRs = 10*log10((((2.^crossConstellationSizes)-1)*23.4423)/3);
 
-% Combine the channel capacity curves to find supremum
-adaptiveQAMChannelCapacity = max(squareQAMChannelCapacity,crossQAMChannelCapacity);
+    squareQAMChannelCapacity = zeros(1,length(SNR));
+    crossQAMChannelCapacity = zeros(1,length(SNR));
 
-for n = 1:length(SNRtable)
-    if ((SNRtable(n) < SNRdB && SNRtable(n+1) > SNRdB) || (SNRtable(n) == SNRdB))
-        display(['Creating QAM constellation for SNR = ' num2str(SNRtable(n)) ' dB.'])
-        break
+    for snr = 1:length(SNRtable)
+        squareQAMChannelCapacity(snr) = findLargestConstellation(SNRtable(snr),squareConstellationSNRs,squareConstellationSizes);
+        crossQAMChannelCapacity(snr) = findLargestConstellation(SNRtable(snr),crossConstellationSNRs,crossConstellationSizes);
     end
-end
 
-M = 2^adaptiveQAMChannelCapacity(n);
-capacity = adaptiveQAMChannelCapacity(n);
+    % Combine the channel capacity curves to find supremum
+    adaptiveQAMChannelCapacity = max(squareQAMChannelCapacity,crossQAMChannelCapacity);
 
-if M >=4
-    alphabet = 0:(M-1);
+    for n = 1:length(SNRtable)
+        if ((SNRtable(n) < SNRdB && SNRtable(n+1) > SNRdB) || (SNRtable(n) == SNRdB))
+            display(['Creating QAM constellation for SNR = ' num2str(SNRtable(n)) ' dB, with DoF = ' num2str(DoF)])
+            break
+        end
+    end
 
-    codebook = qammod(alphabet,M);
+    M = 2^(floor(DoF * adaptiveQAMChannelCapacity(n)));
+    capacity = floor(DoF * adaptiveQAMChannelCapacity(n));
 
-    display(['Created QAM constellation M = ' num2str(M) '.']);
+    if M >=4
+        alphabet = 0:(M-1);
 
-%    scatterplot(codebook);
+        codebook = qammod(alphabet,M);
+
+        display(['Created QAM constellation M = ' num2str(M) '.']);
+
+    %    scatterplot(codebook);
+    else
+        display(['Unable to create codebook: SNR too low']);
+        codebook = 0;
+        capacity  = 0;
+    end
 else
     display(['Unable to create codebook: SNR too low']);
     codebook = 0;
+    capacity = 0;
 end
-
 end
 
