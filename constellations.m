@@ -1,7 +1,7 @@
 % perform alignment procedure multiple times to investigate effect on
 % constellations at receivers
 
-superman = 512;
+superman = 1024;
 
 constellationPri{1} = zeros(3,superman);
 constellationPri{2} = zeros(2,superman);
@@ -20,6 +20,9 @@ dataTxPub{2} = zeros(2,superman);
 
 dataRxPub{1} = zeros(3,superman);
 dataRxPub{2} = zeros(2,superman);
+
+constellationInt{1} = zeros(2,superman);
+constellationInt{2} = zeros(3,superman);
 
 for batman = 1:superman
     
@@ -47,6 +50,14 @@ for batman = 1:superman
         constellationPub{2}(:,batman) = equalisedPub{2}.';
         dataTxPri{2}(:,batman) = publicCodeword(2,1:2).';
         dataRxPri{2}(:,batman) = dataPri{2}.';
+    end
+    
+    if ~isempty(decodedInt{1})
+        constellationInt{1}(:,batman) = equalisedInt{1}.';
+    end
+    
+    if ~isempty(decodedInt{2})
+        constellationInt{2}(:,batman) = equalisedInt{2}.';
     end
     
 end
