@@ -111,15 +111,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = PublicDoF(2)/cardinality(2,1);
 end
 
-dofSplitPri{1} = [0.4 0.4 1];
-dofSplitPub{1} = [0.4 0.4 0];
-dofSplitPri{2} = [0.0 0.0];
-dofSplitPub{2} = [0.4 0.4];
-
-streamsPri(1) = 3;
-streamsPub(1) = 2;
-streamsPri(2) = 2;
-streamsPub(2) = 2;
+dofSplitPri{1} = [0.2 0.2 0];
+dofSplitPub{1} = [0.2 0.2 0];
+dofSplitPri{2} = [0.4 0.4];
+dofSplitPub{2} = [0.6 0.6];
 
 for user = 1:users
     for stream = 1:txAntennas(user)
@@ -221,9 +216,9 @@ for i = 1:users
     end
 end
 
-for i = 1:users
-    receivedMessage{i} = receivedMessage{i} + circSymAWGN(rxAntennas(i),1,1);
-end
+% for i = 1:users
+%     receivedMessage{i} = receivedMessage{i} + circSymAWGN(rxAntennas(i),1,1);
+% end
 
            
 % Begin User 1 decoding
@@ -245,46 +240,43 @@ for rxUser = 1:users
     for txUser = 1:users
         if (rxUser ~= txUser)
 
-            if (SNR(rxUser,rxUser) >= SNR(txUser,rxUser))
+            %if (SNR(rxUser,rxUser) >= SNR(txUser,rxUser))
 
                 % if the SNR of the direct stream is greater than the INR
                 % from user B, decode the common message from user A first
 
                 commonSubspace{rxUser} = receivedMessage{rxUser};
-                
-                if (max(dofSplitPub{txUser}) > 0) % if public stream has been sent from the interfering user B
-                               
+                                if (max(dofSplitPub{txUser}) > 0)
+                    
                     if (rxAntennas(rxUser) > txAntennas(txUser))
 
                         % If user A has more antennas then strip out the extra stream(s) so that
                         % user B's interference can be subtracted
-                        
+
                         numberOfDimensions = rxAntennas(rxUser);
                         hiddenDimensions = rxAntennas(rxUser) - txAntennas(txUser);
+                        
                         commonSubspace{rxUser} = removeHiddenStreams(commonSubspace{rxUser},(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
                     end
 
-                    % Equalise user B's interference using SVD of the cross channel
-                    
                     equalisedInt{rxUser} = pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{txUser,rxUser}) * U{txUser,rxUser}' * commonSubspace{rxUser};
 
-                    % decode the public message from the unwanted user B as interference
+                    % decode the public message from the unwanted user B as
+                    % interference
 
-                    for i = 1:txAntennas(txUser)
-                    [dataInt{rxUser}(i), decodedInt{rxUser}(i)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(i),codebookIndexPub{txUser}(i));
+                    for i = 1:length(equalisedInt{rxUser})
+                    [dataInt{rxUser}(i), decodedInt{rxUser}(i)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(i),codebookIndexPri{txUser}(i));
                     end
 
-                    % remove the effect of the decoded message from the received signal 
+                    % remove the effect of the decoded message from the
+                    % received signal 
 
                     crossInterference{rxUser} = H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * decodedInt{rxUser}.';
 
                 end
-                
-                commonSubspace{rxUser} = commonSubspace{rxUser} - crossInterference{rxUser};
-                
                 if (max(dofSplitPub{rxUser}) > 0)
 
-                    equalisedPub{rxUser} = pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser};
+                    equalisedPub{rxUser} = pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * receivedMessage{rxUser};
 
                     % decode the message and symbols sent by user A
 
@@ -295,6 +287,61 @@ for rxUser = 1:users
                     % received signal
 
                     publicInterference{rxUser} = H{rxUser,rxUser} * V{rxUser,txUser} * sqrt(directionPub{rxUser,txUser}) * decodedPub{rxUser}.';                  
+                    commonSubspace{rxUser} = receivedMessage{rxUser} - publicInterference{rxUser};
+
+                end
+
+
+
+                if (max(dofSplitPri{rxUser}) > 0)
+
+                    isolatedPri{rxUser} = receivedMessage{rxUser} - publicInterference{rxUser} - crossInterference{rxUser};
+
+                    equalisedPri{rxUser} = pinv(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * isolatedPri{rxUser};
+
+                    % decode the private message from the desired user A
+
+                    for i = 1:length(equalisedPri{rxUser})
+                        [dataPri{rxUser}(i), decodedPri{rxUser}(i)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i),codebookIndexPri{rxUser}(i));
+                    end
+
+                end
+
+            elseif (SNR(txUser,rxUser) >= SNR(txUser,rxUser))
+
+                if (max(dofSplitPub{txUser}) > 0)
+
+                    equalisedInt{rxUser} = pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{rxUser,txUser}) * U{txUser,rxUser}' * commonSubspace{rxUser};
+
+                    % decode the public message from the unwanted user B as
+                    % interference
+
+                    for i = 1:length(equalisedInt{rxUser})
+                    [dataInt{rxUser}(i), decodedInt{rxUser}(i)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(i),codebookIndexPri{txUser}(i));
+                    end
+
+                    % remove the effect of the decoded message from the
+                    % received signal 
+
+                    crossInterference{rxUser} = H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * decodedInt{rxUser};
+                    commonSubspace{rxUser} = commonSubspace{rxUser} - crossInterference{rxUser};
+
+                end
+
+                if (max(dofSplitPub{rxUser}) > 0)
+
+                    equalisedPub{rxUser} = pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser};
+
+                    % decode the message and symbols sent by user A
+
+                    for i = 1:length(equalisedPub{rxUser})
+                        [dataPub{rxUser}(i), decodedPub{rxUser}(i)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(i),codebookIndexPub{rxUser}(i));
+                    end
+
+                    % remove the effect of the decoded message from the
+                    % received signal
+
+                    publicInterference{rxUser} = H{rxUser,rxUser} * V{rxUser,txUser} * sqrt(directionPub{rxUser,txUser}) * decodedPub{rxUser};                  
                     commonSubspace{rxUser} = commonSubspace{rxUser} - publicInterference{rxUser};
 
                 end
@@ -311,8 +358,9 @@ for rxUser = 1:users
                         [dataPri{rxUser}(i), decodedPri{rxUser}(i)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i),codebookIndexPri{rxUser}(i));
                     end
 
-                end
-            end         % end of SNR/INR testing loop
+                end     
+
+            %end         % end of SNR/INR testing loop
         end
     end             % end of txUser loop  
     
