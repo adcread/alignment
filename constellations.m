@@ -1,7 +1,7 @@
 % perform alignment procedure multiple times to investigate effect on
 % constellations at receivers
 
-superman = 32;
+superman = 256;
 
 constellationPri{1} = zeros(3,superman);
 constellationPri{2} = zeros(2,superman);
@@ -24,9 +24,15 @@ dataRxPub{2} = zeros(2,superman);
 constellationInt{1} = zeros(2,superman);
 constellationInt{2} = zeros(3,superman);
 
+transmissions{1} = zeros(3,superman);
+transmissions{2} = zeros(2,superman);
+
 for batman = 1:superman
     
     alignment;
+    
+    transmissions{1}(:,batman) = transmittedMessage{1}.';
+    transmissions{2}(:,batman) = transmittedMessage{2}.';
     
     if ~isempty(decodedPri{1})
         constellationPri{1}(:,batman) = equalisedPri{1}.';
@@ -65,47 +71,7 @@ end
 %% Create plots of the constellations found
 
 
-subplot(4,3,1);
-    axis square;
-    scatter(real(constellationPri{1}(1,:)),imag(constellationPri{1}(1,:)),'.');
-    hold on;
-    scatter(real(codebookPri{1}{1}),imag(codebookPri{1}{1}),'o','r');
-    hold off;
-    title(['User 1 Private Stream 1 (M=' num2str(2^codebookIndexPri{1}(1)) ')']);
-
-subplot(4,3,2);
-    axis square
-    scatter(real(constellationPri{1}(2,:)),imag(constellationPri{1}(2,:)),'.');
-    hold on;
-    scatter(real(codebookPri{1}{2}),imag(codebookPri{1}{2}),'o','r');
-    hold off;
-    title(['User 1 Private Stream 2 (M=' num2str(2^codebookIndexPri{1}(2)) ')']);  
-
-subplot(4,3,3);
-    axis square
-    scatter(real(constellationPri{1}(3,:)),imag(constellationPri{1}(3,:)),'.');
-        hold on;
-    scatter(real(codebookPri{1}{3}),imag(codebookPri{1}{3}),'o','r');
-    hold off;
-    title(['User 1 Private Stream 3 (M=' num2str(2^codebookIndexPri{1}(3)) ')']);
-    
-subplot(4,3,4);
-    axis square;
-    scatter(real(constellationPri{2}(1,:)),imag(constellationPri{2}(1,:)),'.');
-        hold on;
-    scatter(real(codebookPri{2}{1}),imag(codebookPri{2}{1}),'o','r');
-    hold off;
-    title(['User 2 Private Stream 1 (M=' num2str(2^codebookIndexPri{2}(1)) ')']);
-    
-subplot(4,3,5);
-    axis square;
-    scatter(real(constellationPri{2}(2,:)),imag(constellationPri{2}(2,:)),'.');
-    hold on;
-    scatter(real(codebookPri{2}{2}),imag(codebookPri{2}{2}),'o','r');
-    hold off;
-    title(['User 2 Private Stream 2 (M=' num2str(2^codebookIndexPri{2}(2)) ')']);
-        
-subplot(4,3,7);
+subplot(6,3,1);
     axis square;
     scatter(real(constellationPub{1}(1,:)),imag(constellationPub{1}(1,:)),'.');
     hold on;
@@ -113,7 +79,7 @@ subplot(4,3,7);
     hold off;
     title(['User 1 Public Stream 1 (M=' num2str(2^codebookIndexPub{1}(1)) ')']);
     
-subplot(4,3,8);
+subplot(6,3,2);
     axis square;
     scatter(real(constellationPub{1}(2,:)),imag(constellationPub{1}(2,:)),'.');
     hold on;
@@ -121,16 +87,41 @@ subplot(4,3,8);
     hold off;
     title(['User 1 Public Stream 2 (M=' num2str(2^codebookIndexPub{1}(2)) ')']);   
     
-subplot(4,3,9);
+subplot(6,3,3);
     axis square;
     scatter(real(constellationPub{1}(3,:)),imag(constellationPub{1}(3,:)),'.');
     hold on;
     scatter(real(codebookPub{1}{3}),imag(codebookPub{1}{3}),'o','r');
     hold off;
     title(['User 1 Public Stream 3 (M=' num2str(2^codebookIndexPub{1}(3)) ')']);
+
+    
+subplot(6,3,4);
+    axis square;
+    scatter(real(constellationPri{1}(1,:)),imag(constellationPri{1}(1,:)),'.');
+    hold on;
+    scatter(real(codebookPri{1}{1}),imag(codebookPri{1}{1}),'o','r');
+    hold off;
+    title(['User 1 Private Stream 1 (M=' num2str(2^codebookIndexPri{1}(1)) ')']);
+
+subplot(6,3,5);
+    axis square
+    scatter(real(constellationPri{1}(2,:)),imag(constellationPri{1}(2,:)),'.');
+    hold on;
+    scatter(real(codebookPri{1}{2}),imag(codebookPri{1}{2}),'o','r');
+    hold off;
+    title(['User 1 Private Stream 2 (M=' num2str(2^codebookIndexPri{1}(2)) ')']);  
+
+subplot(6,3,6);
+    axis square
+    scatter(real(constellationPri{1}(3,:)),imag(constellationPri{1}(3,:)),'.');
+        hold on;
+    scatter(real(codebookPri{1}{3}),imag(codebookPri{1}{3}),'o','r');
+    hold off;
+    title(['User 1 Private Stream 3 (M=' num2str(2^codebookIndexPri{1}(3)) ')']);
     
     
-subplot(4,3,10);
+subplot(6,3,7);
     axis square;
     scatter(real(constellationPub{2}(1,:)),imag(constellationPub{2}(1,:)),'.');
     hold on;
@@ -138,13 +129,65 @@ subplot(4,3,10);
     hold off;
     title(['User 2 Public Stream 1 (M=' num2str(2^codebookIndexPub{2}(1)) ')']);
     
-subplot(4,3,11);
+subplot(6,3,8);
     axis square;
     scatter(real(constellationPub{2}(2,:)),imag(constellationPub{2}(2,:)),'.');
     hold on;
     scatter(real(codebookPub{2}{2}),imag(codebookPub{2}{2}),'o','r');
     hold off;
-    title(['User 2 Public Stream 2 (M=' num2str(2^codebookIndexPub{2}(2)) ')']);  
+    title(['User 2 Public Stream 2 (M=' num2str(2^codebookIndexPub{2}(2)) ')']);
+    
+    
+subplot(6,3,10);
+    axis square;
+    scatter(real(constellationPri{2}(1,:)),imag(constellationPri{2}(1,:)),'.');
+        hold on;
+    scatter(real(codebookPri{2}{1}),imag(codebookPri{2}{1}),'o','r');
+    hold off;
+    title(['User 2 Private Stream 1 (M=' num2str(2^codebookIndexPri{2}(1)) ')']);
+    
+subplot(6,3,11);
+    axis square;
+    scatter(real(constellationPri{2}(2,:)),imag(constellationPri{2}(2,:)),'.');
+    hold on;
+    scatter(real(codebookPri{2}{2}),imag(codebookPri{2}{2}),'o','r');
+    hold off;
+    title(['User 2 Private Stream 2 (M=' num2str(2^codebookIndexPri{2}(2)) ')']);
+        
+    
+subplot(6,3,13);
+    axis square;
+    scatter(real(constellationInt{1}(1,:)),imag(constellationInt{1}(1,:)),'.');
+    hold on;
+    scatter(real(codebookPub{2}{1}),imag(codebookPub{2}{1}),'o','r');
+    hold off;
+    title(['User 1 Decoded Interference Stream 1']);    
+
+subplot(6,3,14);
+    axis square;
+    scatter(real(constellationInt{1}(2,:)),imag(constellationInt{1}(2,:)),'.');
+    hold on;
+    scatter(real(codebookPub{2}{2}),imag(codebookPub{2}{2}),'o','r');
+    hold off;
+    title(['User 2 Decoded Interference Stream 2']); 
+    
+    
+    subplot(6,3,16);
+    axis square;
+    scatter(real(constellationInt{2}(1,:)),imag(constellationInt{2}(1,:)),'.');
+    hold on;
+    scatter(real(codebookPub{1}{1}),imag(codebookPub{1}{1}),'o','r');
+    hold off;
+    title(['User 2 Decoded Interference Stream 1']); 
+    
+    subplot(6,3,17);
+    axis square;
+    scatter(real(constellationInt{2}(2,:)),imag(constellationInt{2}(2,:)),'.');
+    hold on;
+    scatter(real(codebookPub{1}{2}),imag(codebookPub{1}{2}),'o','r');
+    hold off;
+    title(['User 2 Decoded Interference Stream 2']); 
+    
 
 
 %% Send an email to IFTTT to notify Mobile user.

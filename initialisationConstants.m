@@ -28,17 +28,11 @@ for i=1:users
     end
 end
 
-baselinePower = 5000;
+baselinePower = 1000;
 baselineNoise = 1;
+
+SNR = (baselinePower/baselineNoise).^ alpha;
 
 H = generateChannel(users, txAntennas, rxAntennas, 'kronecker');            % Generates Kronecker channels with unit channel gain
 
-scaleFactor = zeros(users);
-
-for i=1:users
-    for j = 1:users
-        scaleFactor(i,j) = sqrt(10^(log10(baselinePower)*alpha(i,j)));      % scales the channel to achieve the desired SNR
-        H{i,j} = scaleFactor(i,j) * H{i,j};
-    end
-end
 
