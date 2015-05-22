@@ -67,10 +67,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
                                                                             %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.4 0.4 0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.0 0.0 0];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.4 0.4];
-dofSplitPri{2} = [0.0 0.0];
+dofSplitPub{1} = [0 0 0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0 0 1];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.6 0.6];
+dofSplitPri{2} = [0.4 0.4];
 
 
 %% Creation of Source Alphabets
@@ -152,6 +152,8 @@ end
 for symbol = (trainingSymbols+1):totalSymbols
     
     for user = 1:users
+        privateCodeword{user} = zeros(txAntennas(user),totalSymbols);
+        publicCodeword{user} = zeros(txAntennas(user),totalSymbols);
         for stream = 1:txAntennas(user)
             MPri = length(codebookPri{user}{stream});
             MPub = length(codebookPub{user}{stream});
@@ -197,9 +199,9 @@ for rxUser = 1:users
     end
 end
 
-for rxUser = 1:users
-    receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
-end
+% for rxUser = 1:users
+%     receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
+% end
 
 
 %% Equalisation - not currently used
@@ -253,6 +255,10 @@ for symbol = 1:totalSymbols
 
                         equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedInt{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
 
+                        for stream = 1:rxAntennas(txUser)
+                            equalisedInt{rxUser}(stream,symbol) = scaleFactor{txUser}(stream) * equalisedInt{rxUser}(stream,symbol);
+                        end
+                        
 
                         % decode the public message from the unwanted user B as interference
 
@@ -275,7 +281,11 @@ for symbol = 1:totalSymbols
                         equalisedPub{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedPub{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
 
                         % decode the message and symbols sent by user A
-
+                        
+                        for stream = 1:rxAntennas(rxUser)
+                            equalisedPub{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPub{rxUser}(stream,symbol);
+                        end
+                        
                         for stream = 1:length(equalisedPub{rxUser}(:,symbol))
                             [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
                         end
@@ -295,7 +305,11 @@ for symbol = 1:totalSymbols
                         equalisedPri{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedPri{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
 
                         % decode the private message from the desired user A
-
+                        
+                        for stream = 1:rxAntennas(rxUser)
+                            equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPub{rxUser}(stream,symbol);
+                        end
+                        
                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
                             [dataPri{rxUser}(i,symbol), decodedPri{rxUser}(i,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i,symbol),codebookIndexPri{rxUser}(i));
                         end
