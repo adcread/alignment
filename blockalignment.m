@@ -21,7 +21,7 @@ power = [1 1];                                  % transmit power levels (per use
 
 alpha = [1 0.6 ; 0.6 1];
 
-baselinePower = 1000;
+baselinePower = 10000;
 baselineNoise = 1;
 
 SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given alpha and baseline power levels
@@ -66,10 +66,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPri{2}(stream) = privateDoF(2)/cardinality(2,1);
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
-                                                                            %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0 0 0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0 0 1];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.6 0.6];
+                                                                              %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{1} = [0.2 0.2 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0.2 0.2 0.0];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.4 0.4];
 dofSplitPri{2} = [0.4 0.4];
 
 
@@ -199,9 +199,9 @@ for rxUser = 1:users
     end
 end
 
-% for rxUser = 1:users
-%     receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
-% end
+for rxUser = 1:users
+    receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
+end
 
 
 %% Equalisation - not currently used
@@ -216,28 +216,28 @@ end
 
 
 %% Detection & Estimation
-
+for user = 1:users
+    publicInterference{rxUser} = zeros(rxAntennas(rxUser),totalSymbols);
+    crossInterference{rxUser} = zeros(rxAntennas(rxUser),totalSymbols);
+end
 
 for symbol = 1:totalSymbols
 
     for rxUser = 1:users
-
-        publicInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
-        crossInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
 
         commonSubspace = cell(users,1);
 
         for txUser = 1:users
             if (rxUser ~= txUser)
 
-                if (SNR(rxUser,rxUser) >= SNR(txUser,rxUser))
+                if (SNR(rxUser,rxUser) >= SNR(txUser,rxUser));
 
                     % if the SNR of the direct stream is greater than the INR
                     % from user B, decode the common message from user A first
 
                     commonSubspace{rxUser} = receivedMessage{rxUser}(:,symbol);
 
-                    if (max(dofSplitPub{txUser}) > 0) % if public stream has been sent from the interfering user B
+                    if (min(dofSplitPub{txUser}) > 0) % if public stream has been sent from the interfering user B
 
                         if (rxAntennas(rxUser) > txAntennas(txUser))
 
@@ -259,7 +259,6 @@ for symbol = 1:totalSymbols
                             equalisedInt{rxUser}(stream,symbol) = scaleFactor{txUser}(stream) * equalisedInt{rxUser}(stream,symbol);
                         end
                         
-
                         % decode the public message from the unwanted user B as interference
 
                         for stream = 1:txAntennas(txUser)
@@ -293,7 +292,8 @@ for symbol = 1:totalSymbols
                         % received signal
 
                         publicInterference{rxUser}(:,symbol) = H{rxUser,rxUser} * V{rxUser,txUser} * sqrt(directionPub{rxUser,txUser}) * decodedPub{rxUser}(:,symbol);                  
-
+                    else
+                        publicInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
                     end
 
                     if (max(dofSplitPri{rxUser}) > 0)   % If private streams from user A received
@@ -307,7 +307,7 @@ for symbol = 1:totalSymbols
                         % decode the private message from the desired user A
                         
                         for stream = 1:rxAntennas(rxUser)
-                            equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPub{rxUser}(stream,symbol);
+                            equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPri{rxUser}(stream,symbol);
                         end
                         
                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
@@ -330,8 +330,8 @@ cols = max(rxAntennas);
 figure;
 for user = 1:users
     for stream = 1:rxAntennas(user)
+        position = (user-1)*cols + stream;
         if ~isempty(equalisedPub{user})
-            position = (user-1)*cols + stream;
             subplot(rows,cols,position);
             scatter(real(equalisedPub{user}(stream,:)),imag(equalisedPub{user}(stream,:)),'.');
             hold on;
@@ -361,11 +361,11 @@ for user = 1:users
     streams = txAntennas(user)-spareDimensions(user);
     if ~isempty(dataPri{user})
         delta = dataPri{user}(1:streams,:)-privateCodeword{user}(1:streams,:);
-        privateBER(user) = 1 - sum(delta(:)==0)/(streams*totalSymbols)
+        privateBER(user) = 1 - sum(delta(:)==0)/(streams*totalSymbols);
     end
     if ~isempty(dataPub{user})
         delta = dataPub{user}(1:streams,:)-publicCodeword{user}(1:streams,:);
-        publicBER(user) = 1 - sum(delta(:)==0)/(streams*totalSymbols)
+        publicBER(user) = 1 - sum(delta(:)==0)/(streams*totalSymbols);
     end
 end
      
