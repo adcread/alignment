@@ -21,7 +21,7 @@ power = [1 1];                                  % transmit power levels (per use
 
 alpha = [1 0.6 ; 0.6 1];
 
-baselinePower = 10000;
+baselinePower = 100000;
 baselineNoise = 1;
 
 SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given alpha and baseline power levels
@@ -67,18 +67,18 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
                                                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.2 0.2 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.2 0.2 0.0];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.4 0.4];
-dofSplitPri{2} = [0.4 0.4];
+dofSplitPub{1} = [0.25 0.25 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0.25 0.25 0.0];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.25 0.25];
+dofSplitPri{2} = [0.0 0.0];
 
 
 %% Creation of Source Alphabets
 
 for user = 1:users
     for stream = 1:txAntennas(user)
-       [codebookPri{user}{stream},codebookIndexPri{user}(stream)] = generateTransmitCodebook(dofSplitPri{user}(stream), SNR(user,user),baselineNoise);
-       [codebookPub{user}{stream},codebookIndexPub{user}(stream)] = generateTransmitCodebook(dofSplitPub{user}(stream), SNR(user,user),baselineNoise);        
+       [codebookPri{user}{stream},codebookIndexPri{user}(stream)] = generateTransmitCodebook(dofSplitPri{user}(stream), SNR(user,user),6);
+       [codebookPub{user}{stream},codebookIndexPub{user}(stream)] = generateTransmitCodebook(dofSplitPub{user}(stream), SNR(user,user),6);        
     end
 end
 
@@ -149,11 +149,12 @@ for symbol = 1:trainingSymbols                                              % Ge
     end
 end
 
+privateCodeword{user} = zeros(txAntennas(user),totalSymbols);
+publicCodeword{user} = zeros(txAntennas(user),totalSymbols);
+
 for symbol = (trainingSymbols+1):totalSymbols
     
     for user = 1:users
-        privateCodeword{user} = zeros(txAntennas(user),totalSymbols);
-        publicCodeword{user} = zeros(txAntennas(user),totalSymbols);
         for stream = 1:txAntennas(user)
             MPri = length(codebookPri{user}{stream});
             MPub = length(codebookPub{user}{stream});
@@ -199,9 +200,9 @@ for rxUser = 1:users
     end
 end
 
-for rxUser = 1:users
-    receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
-end
+% for rxUser = 1:users
+%     receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
+% end
 
 
 %% Equalisation - not currently used

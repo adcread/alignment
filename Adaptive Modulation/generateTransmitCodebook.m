@@ -1,11 +1,12 @@
-function [ codebook, capacity ] = generateTransmitCodebook( DoF, signalPower, noisePower )
+function [ codebook, capacity ] = generateTransmitCodebook( DoF, signalPower, errorProbExp)
 %GENERATECODEBOOK Creates a complex Gaussian codebook of length N
 %   Calculate the SNR of the link to be coded for and the desired DoF to be
 %   achieved, then create a codebook of that size and return it.
 
 if DoF > 0;
 
-
+    errorProb = 10^(-errorProbExp);
+    noisePower = signalPower^(1-DoF);
     SNR =  signalPower / noisePower;
     SNRdB = 10*log10(SNR);
 
@@ -18,6 +19,8 @@ if DoF > 0;
 
     squareConstellationSizes = 2:2:100;
     crossConstellationSizes = 1:2:99;
+    
+    errorSNR = 2 * qfuncinv(errorProb);
 
     squareConstellationSNRs = 10*log10((((2.^squareConstellationSizes)-1)*23.4423)/3);
     crossConstellationSNRs = 10*log10((((2.^crossConstellationSizes)-1)*23.4423)/3);
@@ -40,10 +43,10 @@ if DoF > 0;
         end
     end
 
-    M = 2^(floor(DoF * adaptiveQAMChannelCapacity(n)));
-    capacity = floor(DoF * adaptiveQAMChannelCapacity(n));
+    M = 2^(floor(adaptiveQAMChannelCapacity(n)));
+    capacity = floor(adaptiveQAMChannelCapacity(n));
 
-    if M >=4
+    if M >=2
         alphabet = 0:(M-1);
 
         codebook = qammod(alphabet,M);
