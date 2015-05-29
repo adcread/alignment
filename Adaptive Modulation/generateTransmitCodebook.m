@@ -57,12 +57,12 @@ if DoF > 0;
 
     %    scatterplot(codebook);
     else
-        display(['Unable to create codebook: M < 4.']);
+        display(['Unable to create codebook: M < 2.']);
         codebook = 0;
         capacity  = 0;
     end
 else
-    display(['Unable to create codebook: SNR too low']);
+    display(['Unable to create codebook: no DoF assigned']);
     codebook = [0];
     capacity = [0];
 end
