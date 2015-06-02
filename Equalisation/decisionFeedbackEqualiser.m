@@ -3,9 +3,17 @@
 % that contains the training sequence to be used to control the filter.
 % Also pass through a vector 'codebook' containin the codebook used.
 
+signal = equalisedPub{1}(1,:);
+sequence = publicCodeword{1}(1,:);
+codebook = codebookPub{1}{1};
+
 N = min([length(signal) length(sequence)]);
 
-delta = 0.9;
+delta = 0.05;
+
+signalFucker = p2c(randi([0 360]),1);
+
+signal = signal * signalFucker;
 
 for symbol = 1:N
     expectedSignal(symbol) = codebook(sequence(symbol));
@@ -35,13 +43,17 @@ windows = trainingSymbols/windowLength;
 
 for symbol = 1:N
     recoveredSignal(symbol) = signal(symbol) * DFECoefficient(symbol);
-    recoveredSignal(symbol)
-    err(symbol) = expectedSignal(symbol) / recoveredSignal(symbol);
-    err(symbol)
-    step(symbol) = delta * err(symbol);
-    step(symbol)
-    DFECoefficient(symbol+1) = DFECoefficient(symbol) * step(symbol);
-    DFECoefficient(symbol+1)
+    argErr(symbol) = argd(expectedSignal(symbol)) - argd(recoveredSignal(symbol));  % argError = difference in phase between symbols  
+    magErr(symbol) = abs(expectedSignal(symbol)) / abs(recoveredSignal(symbol));  % magError = difference in magnitude between symbols
+    if magErr(symbol) < 1
+        step(symbol) = DFECoefficient(symbol) * delta * -1;
+    else
+        step(symbol) = DFECoefficient(symbol) * delta;
+    end
+    DFECoefficient(symbol+1) = DFECoefficient(symbol) + step(symbol);
+    DFECoefficient(symbol+1) = DFECoefficient(symbol+1) * p2c(argErr(symbol)*delta,1);
+
+
 end
 
 % for symbol = trainingSymbols:N

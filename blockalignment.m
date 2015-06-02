@@ -6,9 +6,10 @@
 addpath('Adaptive Modulation');
 addpath('DoF Calculation');
 addpath('Equalisation');
+addpath('General functions');
 
 dataSymbols = 1024;                              % number of data symbols to transmit
-trainingSymbols = 128;                           % number of training symbols tranmitted before the data.
+trainingSymbols = 0;                           % number of training symbols tranmitted before the data.
 
 totalSymbols = dataSymbols + trainingSymbols;
 
@@ -21,10 +22,12 @@ power = [1 1];                                  % transmit power levels (per use
 
 alpha = [1 0.6 ; 0.6 1];
 
-baselinePower = 200000;
+baselinePower = 5000;
 baselineNoise = 1;
 
 SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given alpha and baseline power levels
+
+DFEon = true;
 
 %% Creation of Channel matrices
 
@@ -68,8 +71,8 @@ for stream = 1:cardinality(2,1)
 end
                                                                               %%%%%%%%%%%%%%%%%%%%%%
 dofSplitPub{1} = [0.5 0.5 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.0 0.0 0.0];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.5 0.0];
+dofSplitPri{1} = [0.4 0.4 0.4];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.0 0.0];
 dofSplitPri{2} = [0.0 0.0];
 
 
@@ -147,7 +150,10 @@ for user = 1:users                                                          % Ge
         privateCodeword{user}(stream,1:trainingSymbols) = ones(1,trainingSymbols);                       
         privateSymbol{user}(stream,1:trainingSymbols) = ones(1,trainingSymbols);
     end
-    publicCodeword{user}(1,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
+    publicCodeword{1}(1,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
+    publicCodeword{1}(2,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
+    publicCodeword{2}(1,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
+    publicCodeword{2}(2,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
 end
 
 for symbol = 1:trainingSymbols
@@ -218,18 +224,51 @@ end
 % end
 
 
-%% Equalisation - not currently used
 
-for symbol = 1:trainingSymbols                                              % Perform adaptive equalisation in this section
-    
+%% Equalisation & Detection
+
+stepsize = 0.05;
+
+decisionFeedbackInt = cell(2,1);
+decisionFeedbackPub = cell(2,1);
+decisionFeedbackPri = cell(2,1);
+
+for user = 1:users
+    decisionFeedbackInt{user} = ones(rxAntennas(user),totalSymbols);
+    decisionFeedbackPub{user} = ones(rxAntennas(user),totalSymbols);
+    decisionFeedbackPri{user} = ones(rxAntennas(user),totalSymbols);
 end
 
-for symbol = (trainingSymbols+1):totalSymbols                               % Use calculated Equaliser to perform equalisation in this section
+magErrInt = cell(2,1);
+magErrPub = cell(2,1);
+magErrPri = cell(2,1);
 
+for user = 1:users
+    magErrInt{user} = ones(rxAntennas(user),totalSymbols);
+    magErrPub{user} = ones(rxAntennas(user),totalSymbols);
+    magErrPri{user} = ones(rxAntennas(user),totalSymbols);
 end
 
+argErrInt = cell(2,1);
+argErrPub = cell(2,1);
+argErrPri = cell(2,1);
 
-%% Detection & Estimation
+for user = 1:users
+    argErrInt{user} = ones(rxAntennas(user),totalSymbols);
+    argErrPub{user} = ones(rxAntennas(user),totalSymbols);
+    argErrPri{user} = ones(rxAntennas(user),totalSymbols);
+end
+
+stepInt = cell(2,1);
+stepPub = cell(2,1);
+stepPri = cell(2,1);
+
+for user = 1:users
+    stepInt{user} = ones(rxAntennas(user),totalSymbols);
+    stepPub{user} = ones(rxAntennas(user),totalSymbols);
+    stepPri{user} = ones(rxAntennas(user),totalSymbols);
+end
+
 for user = 1:users
     publicInterference{rxUser} = zeros(rxAntennas(rxUser),totalSymbols);
     crossInterference{rxUser} = zeros(rxAntennas(rxUser),totalSymbols);
@@ -267,12 +306,26 @@ for symbol = 1:trainingSymbols
                         equalisedInt{rxUser}(:,symbol) = pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{txUser,rxUser}) * U{txUser,rxUser}' * commonSubspace{rxUser};
 
                         equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedInt{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
-
-                        for stream = 1:rxAntennas(txUser)
-                            equalisedInt{rxUser}(stream,symbol) = scaleFactor{txUser}(stream) * equalisedInt{rxUser}(stream,symbol);
+                            
+                        if (DFEon)
+                            for stream = 1:txAntennas(txUser)
+                                equalisedInt{rxUser}(stream,symbol) = equalisedInt{rxUser}(stream,symbol) * decisionFeedbackInt{user}(stream,symbol);
+                                argErrInt{rxUser}(stream,symbol) = argd(publicSymbol{txUser}(stream,symbol)) - argd(equalisedInt{rxUser}(stream,symbol));
+                                magErrInt{rxUser}(stream,symbol) = abs(publicSymbol{txUser}(stream,symbol)) / abs(equalisedInt{rxUser}(stream,symbol));
+                                if magErrInt{rxUser}(stream,symbol) < 1
+                                    stepInt{rxUser}(stream,symbol) = decisionFeedbackInt{user}(stream,symbol) * stepsize * -1;
+                                else
+                                    stepInt{rxUser}(stream,symbol) = decisionFeedbackInt{user}(stream,symbol) * stepsize;
+                                end
+                                decisionFeedbackInt{rxUser}(stream,symbol+1) = decisionFeedbackInt{rxUser}(stream,symbol) + stepInt{rxUser}(stream,symbol);
+%                                 decisionFeedbackInt{rxUser}(stream,symbol+1) = decisionFeedbackInt{rxUser}(stream,symbol+1) / p2c(argErrInt{rxUser}(stream,symbol),1);
+                            end
                         end
                         
-                        % decode the public message from the unwanted user B as interference
+                        % decode the public message from the unwanted user
+                        % B as interference - not strictly necessary since
+                        % data is not used for anything except training DFE
+                        % above.
 
                         for stream = 1:txAntennas(txUser)
                         [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream),codebookIndexPub{txUser}(stream));
@@ -280,7 +333,7 @@ for symbol = 1:trainingSymbols
 
                         % remove the effect of the decoded message from the received signal 
 
-                        crossInterference{rxUser}(:,symbol) = H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * decodedInt{rxUser}(:,symbol);
+                        crossInterference{rxUser}(:,symbol) = H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * publicSymbol{rxUser}(1:txAntennas(txUser),symbol);
                     else
                         crossInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
                     end
@@ -295,8 +348,19 @@ for symbol = 1:trainingSymbols
 
                         % decode the message and symbols sent by user A
                         
-                        for stream = 1:rxAntennas(rxUser)
-                            equalisedPub{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPub{rxUser}(stream,symbol);
+                        if (DFEon)
+                            for stream = 1:rxAntennas(rxUser)
+                                equalisedPub{rxUser}(stream,symbol) = equalisedPub{rxUser}(stream,symbol) * decisionFeedbackPub{rxUser}(stream,symbol);    
+                                argErrPub{rxUser}(stream,symbol) = argd(publicSymbol{rxUser}(stream,symbol)) - argd(equalisedPub{rxUser}(stream,symbol));
+                                magErrPub{rxUser}(stream,symbol) = abs(publicSymbol{rxUser}(stream,symbol)) / abs(equalisedPub{rxUser}(stream,symbol));
+                                if magErrPub{rxUser}(stream,symbol) < 1
+                                    stepPub{rxUser}(stream,symbol) = decisionFeedbackPub{rxUser}(stream,symbol) * stepsize * -1;
+                                else
+                                    stepPub{rxUser}(stream,symbol) = decisionFeedbackPub{rxUser}(stream,symbol) * stepsize;
+                                end
+                                decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol) + stepPub{rxUser}(stream,symbol);
+%                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
+                            end
                         end
                         
                         for stream = 1:length(equalisedPub{rxUser}(:,symbol))
@@ -320,9 +384,6 @@ for symbol = 1:trainingSymbols
 
                         % decode the private message from the desired user A
                         
-                        for stream = 1:rxAntennas(rxUser)
-                            equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPri{rxUser}(stream,symbol);
-                        end
                         
                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
                             [dataPri{rxUser}(i,symbol), decodedPri{rxUser}(i,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i,symbol),codebookIndexPri{rxUser}(i));
@@ -370,16 +431,28 @@ for symbol = (trainingSymbols+1):totalSymbols
 
                         equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedInt{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
 
-                        for stream = 1:rxAntennas(txUser)
-                            equalisedInt{rxUser}(stream,symbol) = scaleFactor{txUser}(stream) * equalisedInt{rxUser}(stream,symbol);
+                        if (DFEon)
+                            for stream = 1:txAntennas(txUser)
+                                equalisedInt{rxUser}(stream,symbol) = equalisedInt{rxUser}(stream,symbol) * decisionFeedbackInt{rxUser}(stream,symbol);
+                                
+                                [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream),codebookIndexPub{txUser}(stream));
+                                
+                                argErrInt{rxUser}(stream,symbol) = argd(decodedInt{rxUser}(stream,symbol)) - argd(equalisedInt{rxUser}(stream,symbol));
+                                magErrInt{rxUser}(stream,symbol) = abs(decodedInt{rxUser}(stream,symbol)) / abs(equalisedInt{rxUser}(stream,symbol));
+                                if magErrInt{rxUser}(stream,symbol) < 1
+                                    stepInt{rxUser}(stream,symbol) = decisionFeedbackInt{rxUser}(stream,symbol) * stepsize * -1;
+                                else
+                                    stepInt{rxUser}(stream,symbol) = decisionFeedbackInt{rxUser}(stream,symbol) * stepsize;
+                                end
+                                decisionFeedbackInt{rxUser}(stream,symbol+1) = decisionFeedbackInt{rxUser}(stream,symbol) + stepInt{rxUser}(stream,symbol);
+%                                 decisionFeedbackInt{rxUser}(stream,symbol+1) = decisionFeedbackInt{rxUser}(stream,symbol+1) / p2c(argErrInt{rxUser}(stream,symbol),1);
+                            end
+                        else
+                            for stream = 1:rxAntennas(txUser)
+                                [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream),codebookIndexPub{txUser}(stream));
+                            end
                         end
                         
-                        % decode the public message from the unwanted user B as interference
-
-                        for stream = 1:txAntennas(txUser)
-                        [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream),codebookIndexPub{txUser}(stream));
-                        end
-
                         % remove the effect of the decoded message from the received signal 
 
                         crossInterference{rxUser}(:,symbol) = H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * decodedInt{rxUser}(:,symbol);
@@ -397,13 +470,28 @@ for symbol = (trainingSymbols+1):totalSymbols
 
                         % decode the message and symbols sent by user A
                         
-                        for stream = 1:rxAntennas(rxUser)
-                            equalisedPub{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPub{rxUser}(stream,symbol);
+                        if (DFEon)
+                            for stream = 1:rxAntennas(rxUser)
+                                equalisedPub{rxUser}(stream,symbol) = equalisedPub{rxUser}(stream,symbol) * decisionFeedbackPub{rxUser}(stream,symbol);
+                                
+                                [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
+
+                                argErrPub{rxUser}(stream,symbol) = argd(decodedPub{rxUser}(stream,symbol)) - argd(equalisedPub{rxUser}(stream,symbol));
+                                magErrPub{rxUser}(stream,symbol) = abs(decodedPub{rxUser}(stream,symbol)) / abs(equalisedPub{rxUser}(stream,symbol));
+                                if magErrPub{rxUser}(stream,symbol) < 1
+                                    stepPub{rxUser}(stream,symbol) = decisionFeedbackPub{rxUser}(stream,symbol) * stepsize * -1;
+                                else
+                                    stepPub{rxUser}(stream,symbol) = decisionFeedbackPub{rxUser}(stream,symbol) * stepsize;
+                                end
+                                decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol) + stepPub{rxUser}(stream,symbol);
+%                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
+                            end
+                        else
+                            for stream = 1:rxAntennas(rxUser)
+                                [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
+                            end
                         end
                         
-                        for stream = 1:length(equalisedPub{rxUser}(:,symbol))
-                            [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
-                        end
                         % remove the effect of the decoded message from the
                         % received signal
 
@@ -476,11 +564,11 @@ privateBER = zeros(users,1);
 for user = 1:users
     streams = txAntennas(user)-spareDimensions(user);
     if ~isempty(dataPri{user})
-        delta = dataPri{user}(1:streams,:)-privateCodeword{user}(1:streams,:);
+        delta = dataPri{user}(1:streams,trainingSymbols+1:end)-privateCodeword{user}(1:streams,trainingSymbols+1:end);
         privateBER(user) = 1 - sum(delta(:)==0)/(streams*totalSymbols);
     end
     if ~isempty(dataPub{user})
-        delta = dataPub{user}(1:streams,:)-publicCodeword{user}(1:streams,:);
+        delta = dataPub{user}(1:streams,trainingSymbols+1:end)-publicCodeword{user}(1:streams,trainingSymbols+1:end);
         publicBER(user) = 1 - sum(delta(:)==0)/(streams*totalSymbols);
     end
 end
