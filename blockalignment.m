@@ -22,7 +22,7 @@ power = [1 1];                                  % transmit power levels (per use
 
 alpha = [1 0.6 ; 0.6 1];
 
-baselinePower = 5000;
+baselinePower = 50000;
 baselineNoise = 1;
 
 SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given alpha and baseline power levels
@@ -70,10 +70,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
                                                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.5 0.5 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPub{1} = [0.4 0.4 0.0];                                               % PARAMETER TO CHANGE 
 dofSplitPri{1} = [0.4 0.4 0.4];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.0 0.0];
-dofSplitPri{2} = [0.0 0.0];
+dofSplitPub{2} = [0.2 0.2];
+dofSplitPri{2} = [0.2 0.2];
 
 
 %% Creation of Source Alphabets
@@ -88,6 +88,12 @@ end
 %% Creation of messages to transmit
 
 [U, sigma, V] = eigenchannel(H);  % Eigenchannel decomposition
+
+for rxUser = 1:users
+    for txUser = 1:users
+        condition(rxUser,txUser) = max(nonzeros(max(sigma{rxUser,txUser})))/min(nonzeros(max(sigma{rxUser,txUser})));
+    end
+end
 
 covariancePri = cell(1,users);  % set up cells for covariance matrices
 covariancePub = cell(1,users);
@@ -384,6 +390,20 @@ for symbol = 1:trainingSymbols
 
                         % decode the private message from the desired user A
                         
+                        if (DFEon)
+                            for stream = 1:rxAntennas(rxUser)
+                                equalisedPri{rxUser}(stream,symbol) = equalisedPri{rxUser}(stream,symbol) * decisionFeedbackPri{rxUser}(stream,symbol);    
+                                argErrPri{rxUser}(stream,symbol) = argd(privateSymbol{rxUser}(stream,symbol)) - argd(equalisedPri{rxUser}(stream,symbol));
+                                magErrPri{rxUser}(stream,symbol) = abs(privateSymbol{rxUser}(stream,symbol)) / abs(equalisedPri{rxUser}(stream,symbol));
+                                if magErrPri{rxUser}(stream,symbol) < 1
+                                    stepPri{rxUser}(stream,symbol) = decisionFeedbackPri{rxUser}(stream,symbol) * stepsize * -1;
+                                else
+                                    stepPri{rxUser}(stream,symbol) = decisionFeedbackPri{rxUser}(stream,symbol) * stepsize;
+                                end
+                                decisionFeedbackPri{rxUser}(stream,symbol+1) = decisionFeedbackPri{rxUser}(stream,symbol) + stepPri{rxUser}(stream,symbol);
+%                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
+                            end
+                        end
                         
                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
                             [dataPri{rxUser}(i,symbol), decodedPri{rxUser}(i,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i,symbol),codebookIndexPri{rxUser}(i));
@@ -486,10 +506,10 @@ for symbol = (trainingSymbols+1):totalSymbols
                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol) + stepPub{rxUser}(stream,symbol);
 %                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
                             end
-                        else
-                            for stream = 1:rxAntennas(rxUser)
-                                [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
-                            end
+%                         else
+%                             for stream = 1:rxAntennas(rxUser)
+%                                 [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
+%                             end
                         end
                         
                         % remove the effect of the decoded message from the
@@ -510,8 +530,26 @@ for symbol = (trainingSymbols+1):totalSymbols
 
                         % decode the private message from the desired user A
                         
-                        for stream = 1:rxAntennas(rxUser)
-                            equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPri{rxUser}(stream,symbol);
+                        if (DFEon)
+                            for stream = 1:rxAntennas(rxUser)
+                                equalisedPri{rxUser}(stream,symbol) = equalisedPri{rxUser}(stream,symbol) * decisionFeedbackPri{rxUser}(stream,symbol);
+                                
+                                [dataPri{rxUser}(stream,symbol), decodedPri{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(stream,symbol),codebookIndexPri{rxUser}(stream));
+
+                                argErrPri{rxUser}(stream,symbol) = argd(decodedPri{rxUser}(stream,symbol)) - argd(equalisedPri{rxUser}(stream,symbol));
+                                magErrPri{rxUser}(stream,symbol) = abs(decodedPri{rxUser}(stream,symbol)) / abs(equalisedPri{rxUser}(stream,symbol));
+                                if magErrPri{rxUser}(stream,symbol) < 1
+                                    stepPri{rxUser}(stream,symbol) = decisionFeedbackPri{rxUser}(stream,symbol) * stepsize * -1;
+                                else
+                                    stepPri{rxUser}(stream,symbol) = decisionFeedbackPri{rxUser}(stream,symbol) * stepsize;
+                                end
+                                decisionFeedbackPri{rxUser}(stream,symbol+1) = decisionFeedbackPri{rxUser}(stream,symbol) + stepPri{rxUser}(stream,symbol);
+%                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
+                            end
+%                         else
+%                             for stream = 1:rxAntennas(rxUser)
+%                                 [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookIndexPub{rxUser}(stream));
+%                             end
                         end
                         
                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
@@ -573,5 +611,6 @@ for user = 1:users
     end
 end
      
+condition
 publicBER
 privateBER
