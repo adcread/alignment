@@ -8,7 +8,7 @@ addpath('DoF Calculation');
 addpath('Equalisation');
 addpath('General functions');
 
-dataSymbols = 1024;                              % number of data symbols to transmit
+dataSymbols = 128;                              % number of data symbols to transmit
 trainingSymbols = 0;                           % number of training symbols tranmitted before the data.
 
 totalSymbols = dataSymbols + trainingSymbols;
@@ -28,6 +28,7 @@ baselineNoise = 1;
 SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given alpha and baseline power levels
 
 DFEon = true;
+noiseOn = false;
 
 %% Creation of Channel matrices
 
@@ -70,8 +71,8 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
                                                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.5 0.5 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.4 0.4 0.4];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{1} = [0.4 0.4 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0.4 0.4 0.0];                                               %%%%%%%%%%%%%%%%%%%%%%
 dofSplitPub{2} = [0.0 0.0];
 dofSplitPri{2} = [0.0 0.0];
 
@@ -199,15 +200,15 @@ end
     transmittedMessage{1} = privateMessage{1} + publicMessage{1};
     transmittedMessage{2} = privateMessage{2} + publicMessage{2};
     
-for user = 1:users
-    scaleFactor{user} = zeros(1,txAntennas(user));
-    for stream = 1:txAntennas(user)
-        scaleFactor{user}(stream) = scaleFactor{user}(stream) + mean(real(transmittedMessage{user}(stream,:)).^2 +imag(transmittedMessage{user}(stream,:)).^2);
-        if scaleFactor{user}(stream)~=0
-        transmittedMessage{user}(stream,:) = transmittedMessage{user}(stream,:)/scaleFactor{user}(stream);
-        end
-    end
-end
+% for user = 1:users
+%     scaleFactor{user} = zeros(1,txAntennas(user));
+%     for stream = 1:txAntennas(user)
+%         scaleFactor{user}(stream) = scaleFactor{user}(stream) + mean(real(transmittedMessage{user}(stream,:)).^2 +imag(transmittedMessage{user}(stream,:)).^2);
+%         if scaleFactor{user}(stream)~=0
+%         transmittedMessage{user}(stream,:) = transmittedMessage{user}(stream,:)/scaleFactor{user}(stream);
+%         end
+%     end
+% end
 
 %% Passing through the channel
 
@@ -219,10 +220,11 @@ for rxUser = 1:users
     end
 end
 
-% for rxUser = 1:users
-%     receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
-% end
-
+if noiseOn == true
+    for rxUser = 1:users
+        receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
+    end
+end
 
 
 %% Equalisation & Detection
@@ -460,11 +462,13 @@ for symbol = (trainingSymbols+1):totalSymbols
                         crossInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
                     end
 
-                    commonSubspace{rxUser} = receivedMessage{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
+                    commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
 
-                    if (max(dofSplitPub{rxUser}) > 0) % If public messages sent by user A
+                    % If public messages sent by user A
+                    
+                    if (max(dofSplitPub{rxUser}) > 0) 
 
-                        equalisedPub{rxUser}(:,symbol) = pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser};
+                        equalisedPub{rxUser}(:,symbol) = pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
 
                         equalisedPub{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedPub{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
 
@@ -510,9 +514,9 @@ for symbol = (trainingSymbols+1):totalSymbols
 
                         % decode the private message from the desired user A
                         
-                        for stream = 1:rxAntennas(rxUser)
-                            equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPri{rxUser}(stream,symbol);
-                        end
+%                         for stream = 1:rxAntennas(rxUser)
+%                             equalisedPri{rxUser}(stream,symbol) = scaleFactor{rxUser}(stream) * equalisedPri{rxUser}(stream,symbol);
+%                         end
                         
                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
                             [dataPri{rxUser}(i,symbol), decodedPri{rxUser}(i,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i,symbol),codebookIndexPri{rxUser}(i));
