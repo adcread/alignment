@@ -50,8 +50,8 @@ if DoF > 0;
         alphabet = 0:(M-1);
 
         codebook = qammod(alphabet,M);
-%         energy = mean((real(codebook).^2)+(imag(codebook).^2));
-%         codebook = codebook * (1/sqrt(energy));
+        energy = mean((real(codebook).^2)+(imag(codebook).^2));
+        codebook = codebook * (1/sqrt(energy));
 
         display(['Created QAM constellation M = ' num2str(M) '.']);
 
