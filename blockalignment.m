@@ -31,7 +31,7 @@ SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given a
 DFEon = false;
 noiseOn = false;
 generateNewChannel = true;
-% displayConstellations = true;
+displayConstellations = true;
 
 %% Creation of Channel matrices
 
@@ -79,10 +79,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
                                                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.2 0.2 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.2 0.2 0.0];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.4 0.4];
-dofSplitPri{2} = [0.4 0.4];
+dofSplitPub{1} = [0.4 0.4 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0.4 0.4 1.0];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.2 0.2];
+dofSplitPri{2} = [0.2 0.2];
 
 
 %% Creation of Source Alphabets
@@ -109,10 +109,25 @@ end
 
 [U, sigma, V] = eigenchannel(H);  % Eigenchannel decomposition
 
+R0 = cell(users,1);
+R1 = cell(users,1);
+
+eigenspaceCorrelation = zeros(users,1);
+
 for rxUser = 1:users
+
+    R0{rxUser} = H{rxUser,rxUser} * H{rxUser,rxUser}';
+    R1{rxUser} = zeros(rxAntennas(rxUser));
+        
     for txUser = 1:users
         condition(rxUser,txUser) = max(nonzeros(max(sigma{rxUser,txUser})))/min(nonzeros(max(sigma{rxUser,txUser})));
+        if (rxUser ~= txUser)
+            R1{rxUser} = R1{rxUser} + H{txUser,rxUser}*H{txUser,rxUser}';
+        end
     end
+    
+    eigenspaceCorrelation(rxUser) = J(R0{rxUser},R1{rxUser},1);
+    
 end
 
 covariancePri = cell(1,users);  % set up cells for covariance matrices
