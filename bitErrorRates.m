@@ -1,7 +1,7 @@
 % Monte Carlo simulation of n blocks with new channel matrices for each -
 % measure BER for each stream per iteration.
 
-N = 1000;
+N = 1e5;
 
 displayConstellations = false;
 

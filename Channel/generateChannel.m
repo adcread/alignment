@@ -6,6 +6,7 @@ H = cell(users,users);
 
 if strcmp(channelModel,'scalar')
 
+elseif strcmp(channelModel, 'czink')
 
 elseif strcmp(channelModel,'complex')
 

@@ -10,6 +10,7 @@
 addpath('Adaptive Modulation');
 addpath('DoF Calculation');
 addpath('Equalisation');
+addpath('Channel');
 
 users = 2;                                      % K = number of users in network
 

@@ -9,17 +9,16 @@ crossConstellationSizes = 3:2:101;
 squareConstellationSNRs = 10*log10((((2.^squareConstellationSizes)-1)*23.4423)/3);
 crossConstellationSNRs = 10*log10((((2.^crossConstellationSizes)-1)*23.4423)/3);
 
-<<<<<<< HEAD
+
 squareQAMChannelCapacity = floor(log2((1 + (3*scalarSNR)/23.4423)));
 crossQAMChannelCapacity = ((log2(((32/31)* (3*scalarSNR + 1)/23.4423))));
-=======
+
 squareQAMChannelCapacity = zeros(1,length(SNR));
 
 for snr = 1:length(SNR)
     squareQAMChannelCapacity(snr) = findLargestConstellation(SNR(snr),squareConstellationSNRs,squareConstellationSizes);
     crossQAMChannelCapacity(snr) = findLargestConstellation(SNR(snr),crossConstellationSNRs,crossConstellationSizes);
 end
->>>>>>> 38170495632a812a4d4543392199d5c33ef1f5db
 
 plot(SNR,awgnChannelCapacity);
 hold on;
