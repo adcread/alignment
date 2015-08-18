@@ -29,7 +29,7 @@ baselineNoise = 1;
 SNR = (baselinePower/baselineNoise) .^ alpha;   % work out SNR value for given alpha and baseline power levels
 
 DFEon = false;
-noiseOn = true;
+noiseOn = false;
 generateNewChannel = true;
 displayConstellations = true;
 
@@ -68,7 +68,7 @@ end
 
 %% Calculation of Degrees of Freedom in Network
 
-privateDoF = [1 1];
+privateDoF = [2 1];
 publicDoF = [1 1];
 
 cardinality = zeros(users);                                                 % Cardinality = maximum number of signalling dimensions 
@@ -100,10 +100,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPri{2}(stream) = privateDoF(2)/cardinality(2,1);
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
-                                                                              %%%%%%%%%%%%%%%%%%%%%%
+                                                                              %%%%%%%%%%%%%%%%%%%%%
 dofSplitPub{1} = [0.2 0.2 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.0 0.0 0.7];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.2 0.2];
+dofSplitPri{1} = [0.2 0.2 0.8];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.4 0.4];
 dofSplitPri{2} = [0.4 0.4];
 
 %% Creation of Source Alphabets
@@ -117,7 +117,7 @@ for user = 1:users
     
     publicStreams(user) = length(nonzeros(dofSplitPub{user}));
     privateStreams(user) = length(nonzeros(dofSplitPri{user}));
-    
+       
 end
 
 for user = 1:users
@@ -226,18 +226,20 @@ end
 
 for user = 1:users
     for stream = 1:txAntennas(user)
-        privateSymbol{user}(stream,:) = codebookPri{user}{stream}(privateCodeword{user}(stream,:));
         publicSymbol{user}(stream,:) = codebookPub{user}{stream}(publicCodeword{user}(stream,:));   
+        privateSymbol{user}(stream,:) = codebookPri{user}{stream}(privateCodeword{user}(stream,:));    
     end
 end
-  
+
+
+    publicMessage{1} = V{1,2} * sqrt(directionPub{1,2}) * publicSymbol{1};  
     privateMessage{1} = V{1,2} * sqrt(directionPri{1,2}) * privateSymbol{1};
-    privateMessage{2} = V{2,1} * sqrt(directionPri{2,1}) * privateSymbol{2};
 
-    publicMessage{1} = V{1,2} * sqrt(directionPub{1,2}) * publicSymbol{1};
+    transmittedMessage{1} = privateMessage{1} + publicMessage{1};   
+    
     publicMessage{2} = V{2,1} * sqrt(directionPub{2,1}) * publicSymbol{2};
-
-    transmittedMessage{1} = privateMessage{1} + publicMessage{1};
+    privateMessage{2} = V{2,1} * sqrt(directionPri{2,1}) * privateSymbol{2};
+    
     transmittedMessage{2} = privateMessage{2} + publicMessage{2};
     
 %% Calculate transmitter input power and normalise to <=1
@@ -327,8 +329,21 @@ for symbol = (trainingSymbols+1):totalSymbols
                         
                         % decode the public stream
                         
-                        for stream = 1:length(equalisedPub{rxUser}(:,symbol))
-                            [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookPub{rxUser}{stream});
+                        for stream = 1:publicStreams(rxUser)
+                            [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookPub{rxUser}{stream});                             
+                        end
+                        
+                        % If the transmitter sends out fewer public streams
+                        % than it has antennas (likely if M > N) then set
+                        % the dataPub and decodedPub variables to zero so
+                        % they have no effect on the interference estimate
+                        
+                        stream = stream + 1;
+                        
+                        while stream <= txAntennas(rxUser)
+                           dataPub{rxUser}(stream,symbol) = 1;
+                           decodedPub{rxUser}(stream,symbol) = 0;
+                           stream = stream + 1;
                         end
                         
                         % create an estimate of the public stream component
@@ -357,22 +372,22 @@ for symbol = (trainingSymbols+1):totalSymbols
                         % if desired private message is higher-dimension
                         % than undesired public message
                    
-%                         if (txAntennas(rxUser) > txAntennas(txUser))
+                        if (txAntennas(rxUser) > txAntennas(txUser))
                                                        
-%                             hiddenDimensions = txAntennas(rxUser) - txAntennas(txUser);
+                            hiddenDimensions = txAntennas(rxUser) - txAntennas(txUser);
                             
                             % remove the hidden streams
                             
-%                             isolatedInt{rxUser}(:,symbol) = removeHiddenStreams(commonSubspace{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
-%                         else
+                            isolatedInt{rxUser}(:,symbol) = removeHiddenStreams(commonSubspace{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
+                        else
                             isolatedInt{rxUser}(:,symbol) = commonSubspace{rxUser}(:,symbol);
-%                         end
+                        end
                         
                         
                         % Equalise interfering user's interference using SVD 
                         % of the cross channel
                         
-                        equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) *  pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{txUser,rxUser}) * U{txUser,rxUser}' * isolatedInt{rxUser}(:,symbol);
+                        equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) *  pinv(sigma{txUser,rxUser} * sqrt(directionPub{txUser,rxUser})) * U{txUser,rxUser}' * isolatedInt{rxUser}(:,symbol);
                     
                         % decode the interfering public stream
                     
