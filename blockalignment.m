@@ -9,7 +9,7 @@ addpath('Equalisation');
 addpath('General functions');
 addpath('Channel');
 
-dataSymbols = 64;                              % number of data symbols to transmit
+dataSymbols = 1024;                              % number of data symbols to transmit
 trainingSymbols = 0;                           % number of training symbols tranmitted before the data.
 
 totalSymbols = dataSymbols + trainingSymbols;
@@ -37,16 +37,38 @@ displayConstellations = true;
 
 if generateNewChannel
     
-%     H = generateChannel(users, txAntennas, rxAntennas, 'kronecker');
-    H = generateChannel(users, txAntennas, rxAntennas, 'gaussian');
+    H = generateChannel(users, txAntennas, rxAntennas, 'kronecker');
+%     H = generateChannel(users, txAntennas, rxAntennas, 'gaussian');
 
     H{2,1} = H{1,2}'; % Channel responses are reciprocal
 end
 
+[U, sigma, V] = eigenchannel(H);  % Eigenchannel decomposition
+
+R0 = cell(users,1);
+R1 = cell(users,1);
+
+eigenspaceCorrelation = zeros(users,1);
+
+for rxUser = 1:users
+
+    R0{rxUser} = H{rxUser,rxUser} * H{rxUser,rxUser}';
+    R1{rxUser} = zeros(rxAntennas(rxUser));
+        
+    for txUser = 1:users
+        condition(rxUser,txUser) = max(nonzeros(max(sigma{rxUser,txUser})))/min(nonzeros(max(sigma{rxUser,txUser})));
+        if (rxUser ~= txUser)
+            R1{rxUser} = R1{rxUser} + H{txUser,rxUser}*H{txUser,rxUser}';
+        end
+    end
+    
+    eigenspaceCorrelation(rxUser) = J(R0{rxUser},R1{rxUser},1);
+    
+end
 
 %% Calculation of Degrees of Freedom in Network
 
-privateDoF = [1 1];
+privateDoF = [2 1];
 publicDoF = [1 1];
 
 cardinality = zeros(users);                                                 % Cardinality = maximum number of signalling dimensions 
@@ -78,12 +100,11 @@ for stream = 1:cardinality(2,1)
     dofSplitPri{2}(stream) = privateDoF(2)/cardinality(2,1);
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
-                                                                              %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.4 0.4 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.4 0.4 1.0];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.2 0.2];
-dofSplitPri{2} = [0.2 0.2];
-
+                                                                              %%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{1} = [0.2 0.2 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0.2 0.2 0.8];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.4 0.4];
+dofSplitPri{2} = [0.4 0.4];
 
 %% Creation of Source Alphabets
 
@@ -93,6 +114,10 @@ codebookPub = cell(users,1);
 for user = 1:users
     codebookPri{user} = cell(txAntennas(user),1);
     codebookPub{user} = cell(txAntennas(user),1);
+    
+    publicStreams(user) = length(nonzeros(dofSplitPub{user}));
+    privateStreams(user) = length(nonzeros(dofSplitPri{user}));
+       
 end
 
 for user = 1:users
@@ -107,29 +132,6 @@ end
 
 %% Creation of messages to transmit
 
-[U, sigma, V] = eigenchannel(H);  % Eigenchannel decomposition
-
-R0 = cell(users,1);
-R1 = cell(users,1);
-
-eigenspaceCorrelation = zeros(users,1);
-
-for rxUser = 1:users
-
-    R0{rxUser} = H{rxUser,rxUser} * H{rxUser,rxUser}';
-    R1{rxUser} = zeros(rxAntennas(rxUser));
-        
-    for txUser = 1:users
-        condition(rxUser,txUser) = max(nonzeros(max(sigma{rxUser,txUser})))/min(nonzeros(max(sigma{rxUser,txUser})));
-        if (rxUser ~= txUser)
-            R1{rxUser} = R1{rxUser} + H{txUser,rxUser}*H{txUser,rxUser}';
-        end
-    end
-    
-    eigenspaceCorrelation(rxUser) = J(R0{rxUser},R1{rxUser},1);
-    
-end
-
 covariancePri = cell(1,users);  % set up cells for covariance matrices
 covariancePub = cell(1,users);
 
@@ -143,13 +145,37 @@ for i=1:users
     for j = 1:users
         if (i ~= j)
             [covariancePri{i}, covariancePub{i}] = covarianceHK(SNR(i,j), H{i,j}); % calculates covariance matrices for private and public messages
-            directionPri{i,j} = pinv(V{i,j}) * covariancePri{i} * pinv(V{i,j}');
-            directionPub{i,j} = eye(txAntennas(i))/txAntennas(i) - directionPri{i,j};
+            directionPri{i,j} = inv(V{i,j}) * covariancePri{i} * inv(V{i,j}');
+            directionPub{i,j} = inv(V{i,j}) * covariancePub{i} * inv(V{i,j}');
+            if rxAntennas(j) < txAntennas(i)
+                b = txAntennas(i) - spareDimensions(i)+1;
+                directionPub{i,j}(b,b) = 0;
+            end    
             directionPri{i,j} = real(diag(diag(directionPri{i,j})));
             directionPub{i,j} = real(diag(diag(directionPub{i,j})));
         end
     end
 end
+
+% for i=1:users
+%     for j = 1:users
+%         if (i ~= j)
+%             directionPri{i,j} = zeros(txAntennas(i));
+%             directionPub{i,j} = zeros(txAntennas(i));
+%             
+%             Lam = diag(sigma{i,j}.^2);
+%             
+%             for k = 1:txAntennas(i)
+%                 if k <= min(txAntennas(i),rxAntennas(j))
+%                     directionPri{i,j}(k,k)= (1/txAntennas(i)) * 1/(1 + SNR(i,j) * Lam(k)^2);
+%                     directionPub{i,j}(k,k) = (1/txAntennas(i)) - directionPri{i,j}(k,k);
+%                 else
+%                     directionPri{i,j}(k,k) = (1/txAntennas(i));
+%                 end
+%             end
+%         end
+%     end
+% end
 
 
 %%
@@ -192,83 +218,56 @@ for user = 1:users                                                          % Ge
     for stream=1:txAntennas(user)
         MPri = length(codebookPri{user}{stream});
         MPub = length(codebookPub{user}{stream});
-        publicCodeword{user}(stream,1:trainingSymbols) = ones(1,trainingSymbols);                       
-        privateCodeword{user}(stream,1:trainingSymbols) = ones(1,trainingSymbols);                       
-        publicCodeword{user}(stream,trainingSymbols+1:totalSymbols) = randi(MPub,1,totalSymbols-trainingSymbols);
-        privateCodeword{user}(stream,trainingSymbols+1:totalSymbols) = randi(MPri,1,totalSymbols-trainingSymbols);
+        publicCodeword{user}(stream,:) = randi(MPub,1,totalSymbols);
+        privateCodeword{user}(stream,:) = randi(MPri,1,totalSymbols);
     end
 
-end
-
-if (trainingSymbols ~=0)
-    publicCodeword{1}(1,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
-    publicCodeword{1}(2,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
-    publicCodeword{2}(1,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
-    publicCodeword{2}(2,1:trainingSymbols) = trainingSequence('onetwo',trainingSymbols);
 end
 
 for user = 1:users
     for stream = 1:txAntennas(user)
-        privateSymbol{user}(stream,:) = codebookPri{user}{stream}(privateCodeword{user}(stream,:));
         publicSymbol{user}(stream,:) = codebookPub{user}{stream}(publicCodeword{user}(stream,:));   
+        privateSymbol{user}(stream,:) = codebookPri{user}{stream}(privateCodeword{user}(stream,:));    
     end
 end
 
 
-for symbol = (trainingSymbols+1):totalSymbols
-    
-    for user = 1:users
-        for stream = 1:txAntennas(user)
-            MPri = length(codebookPri{user}{stream});
-            MPub = length(codebookPub{user}{stream});
-            if (MPri > 1)
-                privateCodeword{user}(stream,symbol) = (randi(MPri));
-                privateSymbol{user}(stream,symbol) = codebookPri{user}{stream}(privateCodeword{user}(stream,symbol));
-            end
-            if (MPub > 1)
-                publicCodeword{user}(stream,symbol) = (randi(MPub));
-                publicSymbol{user}(stream,symbol) = codebookPub{user}{stream}(publicCodeword{user}(stream,symbol));
-            end
-        end
-    end
-
-end
-   
+    publicMessage{1} = V{1,2} * sqrt(directionPub{1,2}) * publicSymbol{1};  
     privateMessage{1} = V{1,2} * sqrt(directionPri{1,2}) * privateSymbol{1};
-    privateMessage{2} = V{2,1} * sqrt(directionPri{2,1}) * privateSymbol{2};
 
-    publicMessage{1} = V{1,2} * sqrt(directionPub{1,2}) * publicSymbol{1};
+    transmittedMessage{1} = privateMessage{1} + publicMessage{1};   
+    
     publicMessage{2} = V{2,1} * sqrt(directionPub{2,1}) * publicSymbol{2};
-
-    transmittedMessage{1} = privateMessage{1} + publicMessage{1};
+    privateMessage{2} = V{2,1} * sqrt(directionPri{2,1}) * privateSymbol{2};
+    
     transmittedMessage{2} = privateMessage{2} + publicMessage{2};
     
 %% Calculate transmitter input power and normalise to <=1
 
-Q = cell(totalSymbols,1);
-G = cell(totalSymbols,1);
-
-for user = 1:users
-    G{1} = zeros(txAntennas(user));
-    for symbol = 2:length(transmittedMessage{user})
-        Q{symbol} = transmittedMessage{user}(:,symbol) * transmittedMessage{user}(:,symbol)';
-        G{symbol} = zeros(txAntennas(user));
-        for i = 1:length(Q{symbol})
-            for j = 1:length(Q{symbol})
-                G{symbol}(i,j) = G{symbol-1}(i,j) + Q{symbol}(i,j);
-            end
-        end
-        T(symbol) = trace(G{symbol});
-        T(symbol) = T(symbol)/symbol;
-    end
-    
-    scaleFactor(user) = sqrt(T(totalSymbols-1));
-    
-    if (scaleFactor(user)>0)
-        transmittedMessage{user} = transmittedMessage{user} / scaleFactor(user);
-    end
-    
-    end
+% Q = cell(totalSymbols,1);
+% G = cell(totalSymbols,1);
+% 
+% for user = 1:users
+%     G{1} = zeros(txAntennas(user));
+%     for symbol = 2:length(transmittedMessage{user})
+%         Q{symbol} = transmittedMessage{user}(:,symbol) * transmittedMessage{user}(:,symbol)';
+%         G{symbol} = zeros(txAntennas(user));
+%         for i = 1:length(Q{symbol})
+%             for j = 1:length(Q{symbol})
+%                 G{symbol}(i,j) = G{symbol-1}(i,j) + Q{symbol}(i,j);
+%             end
+%         end
+%         T(symbol) = trace(G{symbol});
+%         T(symbol) = T(symbol)/symbol;
+%     end
+%     
+%     scaleFactor(user) = sqrt(T(totalSymbols-1));
+%     
+%     if (scaleFactor(user)>0)
+%         transmittedMessage{user} = transmittedMessage{user} / scaleFactor(user);
+%     end
+%     
+%     end
     
 %% Passing through the channel
 
@@ -276,256 +275,253 @@ for user = 1:users
 for rxUser = 1:users
     receivedMessage{rxUser} = zeros(rxAntennas(rxUser),totalSymbols);
     for txUser = 1:users
+        
+        % received message is superposition of messages received from each user
+        
         receivedMessage{rxUser} = receivedMessage{rxUser} + (sqrt(SNR(txUser,rxUser)) * H{txUser,rxUser} * transmittedMessage{txUser});
     end
 end
 
 if noiseOn == true
     for rxUser = 1:users
-        receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); % add AWGN to received signal
+        
+        % add AWGN to received signal
+        
+        receivedMessage{rxUser} = receivedMessage{rxUser} + circSymAWGN(rxAntennas(rxUser),totalSymbols,1); 
     end
 end
 
-for rxUser = 1:users
-    receivedMessage{rxUser} = receivedMessage{rxUser} * scaleFactor(rxUser);
-end
+% remove scaling factor from input power constraint
+
+% for rxUser = 1:users
+%     receivedMessage{rxUser} = receivedMessage{rxUser} * scaleFactor(rxUser);
+% end
 
 %% Equalisation & Detection
 
-% for symbol = 1:trainingSymbols
-%     for rxUser = 1:users
-% 
-%         commonSubspace = cell(users,1);
-% 
-%         for txUser = 1:users
-%             if (rxUser ~= txUser)
-% 
-%                 if (SNR(rxUser,rxUser) >= SNR(txUser,rxUser));
-% 
-%                     % if the SNR of the direct stream is greater than the INR
-%                     % from user B, decode the common message from user A first
-% 
-%                     commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol);
-% 
-%                     if (min(dofSplitPub{txUser}) > 0) % if public stream has been sent from the interfering user B
-% 
-%                         if (rxAntennas(rxUser) > txAntennas(txUser))
-% 
-%                             % If user A has more antennas then strip out the extra stream(s) so that
-%                             % user B's interference can be subtracted
-% 
-%                             numberOfDimensions = rxAntennas(rxUser);
-%                             hiddenDimensions = rxAntennas(rxUser) - txAntennas(txUser);
-%                             commonSubspace{rxUser}(:,symbol) = removeHiddenStreams(commonSubspace{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
-%                         end
-% 
-%                         % Equalise user B's interference using SVD of the cross channel
-% 
-%                         equalisedInt{rxUser}(:,symbol) = pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{txUser,rxUser}) * U{txUser,rxUser}' * commonSubspace{rxUser}(:,symbol);
-% 
-% %                         equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedInt{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
-%                             
-%                         if (DFEon)
-%                             for stream = 1:txAntennas(txUser)
-%                                 equalisedInt{rxUser}(stream,symbol) = equalisedInt{rxUser}(stream,symbol) * decisionFeedbackInt{user}(stream,symbol);
-%                                 argErrInt{rxUser}(stream,symbol) = argd(publicSymbol{txUser}(stream,symbol)) - argd(equalisedInt{rxUser}(stream,symbol));
-%                                 magErrInt{rxUser}(stream,symbol) = abs(publicSymbol{txUser}(stream,symbol)) / abs(equalisedInt{rxUser}(stream,symbol));
-%                                 if magErrInt{rxUser}(stream,symbol) < 1
-%                                     stepInt{rxUser}(stream,symbol) = decisionFeedbackInt{user}(stream,symbol) * stepsize * -1;
-%                                 else
-%                                     stepInt{rxUser}(stream,symbol) = decisionFeedbackInt{user}(stream,symbol) * stepsize;
-%                                 end
-%                                 decisionFeedbackInt{rxUser}(stream,symbol+1) = decisionFeedbackInt{rxUser}(stream,symbol) + stepInt{rxUser}(stream,symbol);
-% %                                 decisionFeedbackInt{rxUser}(stream,symbol+1) = decisionFeedbackInt{rxUser}(stream,symbol+1) / p2c(argErrInt{rxUser}(stream,symbol),1);
-%                             end
-%                         end
-%                         
-%                         % decode the public message from the unwanted user
-%                         % B as interference - not strictly necessary since
-%                         % data is not used for anything except training DFE
-%                         % above.
-% 
-%                         for stream = 1:txAntennas(txUser)
-%                         [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream),codebookPub{txUser}{stream});
-%                         end
-% 
-%                         % remove the effect of the decoded message from the received signal 
-% 
-%                         crossInterference{rxUser}(:,symbol) = H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * publicSymbol{rxUser}(1:txAntennas(txUser),symbol);
-%                     else
-%                         crossInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
-%                     end
-% 
-%                     commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
-% 
-%                     if (max(dofSplitPub{rxUser}) > 0) % If public messages sent by user A
-% 
-%                         equalisedPub{rxUser}(:,symbol) = pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
-% 
-% %                         equalisedPub{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedPub{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
-% 
-%                         % decode the message and symbols sent by user A
-%                         
-%                         if (DFEon)
-%                             for stream = 1:rxAntennas(rxUser)
-%                                 equalisedPub{rxUser}(stream,symbol) = equalisedPub{rxUser}(stream,symbol) * decisionFeedbackPub{rxUser}(stream,symbol);    
-%                                 argErrPub{rxUser}(stream,symbol) = argd(publicSymbol{rxUser}(stream,symbol)) - argd(equalisedPub{rxUser}(stream,symbol));
-%                                 magErrPub{rxUser}(stream,symbol) = abs(publicSymbol{rxUser}(stream,symbol)) / abs(equalisedPub{rxUser}(stream,symbol));
-%                                 if magErrPub{rxUser}(stream,symbol) < 1
-%                                     stepPub{rxUser}(stream,symbol) = decisionFeedbackPub{rxUser}(stream,symbol) * stepsize * -1;
-%                                 else
-%                                     stepPub{rxUser}(stream,symbol) = decisionFeedbackPub{rxUser}(stream,symbol) * stepsize;
-%                                 end
-%                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol) + stepPub{rxUser}(stream,symbol);
-% %                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
-%                             end
-%                         end
-%                         
-%                         for stream = 1:length(equalisedPub{rxUser}(:,symbol))
-%                             [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookPub{rxUser}{stream});
-%                         end
-%                         % remove the effect of the decoded message from the
-%                         % received signal
-% 
-%                         publicInterference{rxUser}(:,symbol) = H{rxUser,rxUser} * V{rxUser,txUser} * sqrt(directionPub{rxUser,txUser}) * decodedPub{rxUser}(:,symbol);                  
-%                     else
-%                         publicInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
-%                     end
-% 
-%                     if (max(dofSplitPri{rxUser}) > 0)   % If private streams from user A received
-% 
-%                         isolatedPri{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - publicInterference{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
-% 
-%                         equalisedPri{rxUser}(:,symbol) = pinv(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * isolatedPri{rxUser}(:,symbol);
-% 
-% %                         equalisedPri{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) * equalisedPri{rxUser}(:,symbol);       % Attenuate to bring constellation back to alphabet
-% 
-%                         % decode the private message from the desired user A
-%                         
-%                         if (DFEon)
-%                             for stream = 1:rxAntennas(rxUser)
-%                                 equalisedPri{rxUser}(stream,symbol) = equalisedPri{rxUser}(stream,symbol) * decisionFeedbackPri{rxUser}(stream,symbol);    
-%                                 argErrPri{rxUser}(stream,symbol) = argd(privateSymbol{rxUser}(stream,symbol)) - argd(equalisedPri{rxUser}(stream,symbol));
-%                                 magErrPri{rxUser}(stream,symbol) = abs(privateSymbol{rxUser}(stream,symbol)) / abs(equalisedPri{rxUser}(stream,symbol));
-%                                 if magErrPri{rxUser}(stream,symbol) < 1
-%                                     stepPri{rxUser}(stream,symbol) = decisionFeedbackPri{rxUser}(stream,symbol) * stepsize * -1;
-%                                 else
-%                                     stepPri{rxUser}(stream,symbol) = decisionFeedbackPri{rxUser}(stream,symbol) * stepsize;
-%                                 end
-%                                 decisionFeedbackPri{rxUser}(stream,symbol+1) = decisionFeedbackPri{rxUser}(stream,symbol) + stepPri{rxUser}(stream,symbol);
-% %                                 decisionFeedbackPub{rxUser}(stream,symbol+1) = decisionFeedbackPub{rxUser}(stream,symbol+1) / p2c(argErrPub{rxUser}(stream,symbol),1);
-%                             end
-%                         end
-%                         
-%                         for i = 1:length(equalisedPri{rxUser}(:,symbol))
-%                             [dataPri{rxUser}(i,symbol), decodedPri{rxUser}(i,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(i,symbol),codebookPri{rxUser}{i});
-%                         end
-% 
-%                     end
-%                 end         % end of SNR/INR testing loop
-%             end
-%         end             % end of txUser loop  
-% 
-%     end                 % end of rxUser loop
-% end
-
 for symbol = (trainingSymbols+1):totalSymbols
-
-    for rxUser = 1:users
-
-        commonSubspace = cell(users,1);
+    
+    commonSubspace = cell(users,1);
+    
+    for rxUser = 1:users      
 
         for txUser = 1:users
+            
+            % only start to decode when identified interfering users
+            
             if (rxUser ~= txUser)
-
-                if alpha(rxUser,rxUser) - dofSplitPub{rxUser}(1) >= alpha(txUser,rxUser)
-                % if desired public message is interference-free
-                    if (max(dofSplitPub{rxUser}) > 0)
-                    % if a public stream has been sent
+                
+                % if desired public message is interference-free (i.e.
+                % public DoF 'fits' between alpha(1,1) and alpha(2,1))
+                % decoding order is then A_pub, B_pub (if needed) , A_pri
+                
+                commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol);
+                
+                if alpha(rxUser,rxUser) - max(dofSplitPub{rxUser}) >= alpha(txUser,rxUser)
+                   
+                    % if a desired public stream has been sent
+                        
+                    if (publicStreams(rxUser) > 0)
+                
                         consoleOutput(displayConstellations,['Decoding Public message from User ' num2str(rxUser) '.']);
-                        if (length(nonzeros(dofSplitPub{rxUser})) < rxAntennas(rxUser))
-                            hiddenDimensions = rxAntennas(rxUser) - length(nonzeros(dofSplitPub{rxUser}));
-                            commonSubspace{rxUser}(:,symbol) = removeHiddenStreams(receivedMessage{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
-                        else
-                            commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol);
-                        end
+                                           
                         equalisedPub{rxUser}(:,symbol) = 1/sqrt(SNR(rxUser,rxUser)) * pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
-                        for stream = 1:length(equalisedPub{rxUser}(:,symbol))
-                            [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookPub{rxUser}{stream});
+                        
+                        % decode the public stream
+                        
+                        for stream = 1:publicStreams(rxUser)
+                            [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookPub{rxUser}{stream});                             
                         end
+                        
+                        % If the transmitter sends out fewer public streams
+                        % than it has antennas (likely if M > N) then set
+                        % the dataPub and decodedPub variables to zero so
+                        % they have no effect on the interference estimate
+                        
+                        stream = stream + 1;
+                        
+                        while stream <= txAntennas(rxUser)
+                           dataPub{rxUser}(stream,symbol) = 1;
+                           decodedPub{rxUser}(stream,symbol) = 0;
+                           stream = stream + 1;
+                        end
+                        
+                        % create an estimate of the public stream component
+                        % of the received signal for cancellation
+                        
                         publicInterference{rxUser}(:,symbol) = sqrt(SNR(rxUser,rxUser)) * H{rxUser,rxUser} * V{rxUser,txUser} * sqrt(directionPub{rxUser,txUser}) * decodedPub{rxUser}(:,symbol);
+                   
+                    % otherwise there is no public interference to cancel out -
+                    % set the cancellation vector to zeros
+                        
                     else
                         publicInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
                     end
+
+                    % cancel the effect of the desired public stream from
+                    % the received signal
                     
                     commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - publicInterference{rxUser}(:,symbol);
                     
-                    if (max(dofSplitPub{txUser}) > 0) 
-                    % if a public stream has been sent from the interfering
-                    % user
+                    % if the interfering user has sent a public stream
+                
+                    if (publicStreams(txUser) > 0) 
+
                         consoleOutput(displayConstellations,['Decoding Interference from User ' num2str(txUser) '.']);
-                        if (rxAntennas(rxUser) > txAntennas(txUser))
-                            % If user A has more antennas then strip out the extra stream(s) so that
-                            % user B's interference can be subtracted
-                            numberOfDimensions = rxAntennas(rxUser);
-                            hiddenDimensions = rxAntennas(rxUser) - txAntennas(txUser);
-                            commonSubspace{rxUser}(:,symbol) = removeHiddenStreams(commonSubspace{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
+                                           
+                        % if desired private message is higher-dimension
+                        % than undesired public message
+                   
+                        if (txAntennas(rxUser) > txAntennas(txUser))
+                                                       
+                            hiddenDimensions = txAntennas(rxUser) - txAntennas(txUser);
+                            
+                            % remove the hidden streams
+                            
+                            isolatedInt{rxUser}(:,symbol) = removeHiddenStreams(commonSubspace{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
+                        else
+                            isolatedInt{rxUser}(:,symbol) = commonSubspace{rxUser}(:,symbol);
                         end
-                        % Equalise user B's interference using SVD of the cross channel
-                        equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) *  pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{txUser,rxUser}) * U{txUser,rxUser}' * commonSubspace{rxUser}(:,symbol);
+                        
+                        
+                        % Equalise interfering user's interference using SVD 
+                        % of the cross channel
+                        
+                        equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) *  pinv(sigma{txUser,rxUser} * sqrt(directionPub{txUser,rxUser})) * U{txUser,rxUser}' * isolatedInt{rxUser}(:,symbol);
+                    
+                        % decode the interfering public stream
+                    
                         for stream = 1:length(equalisedInt{rxUser}(:,symbol))
                             [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream,symbol),codebookPub{txUser}{stream});
                         end
+                    
+                        % create an estimate of the public stream component
+                        % of the received signal for cancellation
+                    
                         crossInterference{rxUser}(:,symbol) = sqrt(SNR(txUser,rxUser)) * H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * decodedInt{rxUser}(:,symbol);
+                    
+                    % otherwise there is no public interference to cancel out -
+                    % set the cancellation vector to zeros  
+                    
                     else
                         crossInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
                     end
-                                       
+                    
+                    commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - publicInterference{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
+                
+                    % if a desired private stream has been sent
+                
+                    if (privateStreams(rxUser) > 0)
+                    
+                        consoleOutput(displayConstellations,['Decoding private stream from User ' num2str(rxUser) '.']);
+                    
+                        % equalise the private stream using channel inversion
+                    
+                        equalisedPri{rxUser}(:,symbol) =  1/sqrt(SNR(rxUser,rxUser)) * pinv(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
+                    
+                        % decode private stream
+                    
+                        for stream = 1:length(equalisedPri{rxUser}(:,symbol))
+                            [dataPri{rxUser}(stream,symbol), decodedPri{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(stream,symbol),codebookPri{rxUser}{stream});
+                        end                
+                    
+                    end
+                
+                    % otherwise the public interfernce from undesired user
+                    % mustbe removed first - decoding order becomes B_pub,
+                    % A_pub, A_Pri
+                
                 elseif alpha(rxUser,rxUser) - dofSplitPub{rxUser}(1) < alpha(txUser,rxUser)
-                    % if desired public message receives interference from the other user
-                    if (max(dofSplitPub{txUser}) > 0) 
-                    % if a public stream has been sent from the interfering user
+                    
+                    % if a desired private stream has been sent
+                    
+                    if (publicStreams(txUser) > 0) 
+
                         consoleOutput(displayConstellations,['Decoding Interference from User ' num2str(txUser) '.']);
-                        if (rxAntennas(rxUser) > txAntennas(txUser))
-                            % If user A has more antennas then strip out the extra stream(s) so that
-                            % user B's interference can be subtracted
-                            numberOfDimensions = rxAntennas(rxUser);
-                            hiddenDimensions = rxAntennas(rxUser) - txAntennas(txUser);
-                            commonSubspace{rxUser}(:,symbol) = removeHiddenStreams(receivedMessage{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
+                                           
+                        % it may be necessary to eliminate the private
+                        % stream sent at full power from the desired user
+                        
+                        if (privateStreams(rxUser)>0) && (txAntennas(rxUser) > txAntennas(txUser))
+                            
+                            % hidden dimensions = number of tx antennas
+                            % that user A has more than B
+                            
+                            hiddenDimensions = txAntennas(rxUser) - txAntennas(txUser);
+                            
+                            % remove the hidden dimension
+                            
+                            commonSubspace{rxUser}(:,symbol) = removeHiddenStreams(commonSubspace{rxUser}(:,symbol),(H{rxUser,rxUser}*V{rxUser,txUser}),hiddenDimensions);
                         end
-                        % Equalise user B's interference using SVD of the cross channel
+                        
+                        % Equalise interfering user's interference using SVD 
+                        % of the cross channel
+                   
                         equalisedInt{rxUser}(:,symbol) = 1/sqrt(SNR(txUser,rxUser)) *  pinv(sqrt(directionPub{txUser,rxUser})) * pinv(sigma{txUser,rxUser}) * U{txUser,rxUser}' * commonSubspace{rxUser}(:,symbol);
+                    
+                        % decode the interfering public stream
+                    
                         for stream = 1:length(equalisedInt{rxUser}(:,symbol))
                             [dataInt{rxUser}(stream,symbol), decodedInt{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedInt{rxUser}(stream,symbol),codebookPub{txUser}{stream});
                         end
+                    
+                        % create an estimate of the public stream component
+                        % of the received signal for cancellation
+                    
                         crossInterference{rxUser}(:,symbol) = sqrt(SNR(txUser,rxUser)) * H{txUser,rxUser} * V{txUser,rxUser} * sqrt(directionPub{txUser,rxUser}) * decodedInt{rxUser}(:,symbol);
+                    
+                    % otherwise there is no public interference to cancel out -
+                    % set the cancellation vector to zeros  
+                    
                     else
-                        crossInterference{rxUser}(:,symbol) = zeros(length(equalisedInt{rxUser}(:,symbol)),1);
+                        crossInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
                     end
                     
                     commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
                     
-                    % Equalise then decode the desired public message
-                    if (max(dofSplitPub{rxUser}) > 0)
-                        consoleOutput(displayConstellations,['Decoding public message from User ' num2str(rxUser) '.']);
+                    % if a desired public stream has been sent
+                    
+                    if (publicStreams(rxUser) > 0)
+                
+                        consoleOutput(displayConstellations,['Decoding Public message from User ' num2str(rxUser) '.']);
+                                           
                         equalisedPub{rxUser}(:,symbol) = 1/sqrt(SNR(rxUser,rxUser)) * pinv(sqrt(directionPub{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
+                        
+                        % decode the public stream
+                        
                         for stream = 1:length(equalisedPub{rxUser}(:,symbol))
                             [dataPub{rxUser}(stream,symbol), decodedPub{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPub{rxUser}(stream,symbol),codebookPub{rxUser}{stream});
                         end
+                        
+                        % create an estimate of the public stream component
+                        % of the received signal for cancellation
+                        
                         publicInterference{rxUser}(:,symbol) = sqrt(SNR(rxUser,rxUser)) * H{rxUser,rxUser} * V{rxUser,txUser} * sqrt(directionPub{rxUser,txUser}) * decodedPub{rxUser}(:,symbol);
+                   
+                    % otherwise there is no public interference to cancel out -
+                    % set the cancellation vector to zeros
+                        
                     else
-                        publicInterference{rxUser}(:,symbol) = zeros(length(equalisedPub{rxUser}(:,symbol)),1);
-                    end
-                end
-                                       
-                commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol) - publicInterference{rxUser}(:,symbol);
-                
-                if (max(dofSplitPri{rxUser}) > 0)   % If private streams from user A received
-                    consoleOutput(displayConstellations,['Decoding private stream from User ' num2str(rxUser) '.']);
-                    equalisedPri{rxUser}(:,symbol) =  1/sqrt(SNR(rxUser,rxUser)) * pinv(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
+                        publicInterference{rxUser}(:,symbol) = zeros(rxAntennas(rxUser),1);
+                    end                    
+                    
+                    commonSubspace{rxUser}(:,symbol) = receivedMessage{rxUser}(:,symbol) - publicInterference{rxUser}(:,symbol) - crossInterference{rxUser}(:,symbol);
+                    
+                    if (privateStreams(rxUser) > 0)
+                    
+                        consoleOutput(displayConstellations,['Decoding private stream from User ' num2str(rxUser) '.']);
+                    
+                        % equalise the private stream using channel inversion
+                    
+                        equalisedPri{rxUser}(:,symbol) =  1/sqrt(SNR(rxUser,rxUser)) * pinv(sqrt(directionPri{rxUser,txUser})) * V{rxUser,txUser}' * pinv(H{rxUser,rxUser}) * commonSubspace{rxUser}(:,symbol);
+                    
+                        % decode private stream
+                    
                         for stream = 1:length(equalisedPri{rxUser}(:,symbol))
                             [dataPri{rxUser}(stream,symbol), decodedPri{rxUser}(stream,symbol)] = maximumLikelihoodQAMDecoder(equalisedPri{rxUser}(stream,symbol),codebookPri{rxUser}{stream});
-                        end
+                        end                
+                    
+                    end
                 end
             end
         end

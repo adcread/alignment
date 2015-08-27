@@ -4,9 +4,8 @@ function [ covariancePri, covariancePub ] = covarianceHK( SNR, H )
 
     [N, M] = size(H);
 
-    covariancePri = (1/M) * inv(eye(M) + SNR * (ctranspose(H) * H));
+    covariancePri = (1/M) * inv(eye(M) + SNR * (H' * H));
     covariancePub = (eye(M)/M) - covariancePri;
 
-    
 end
 
