@@ -20,7 +20,7 @@ elseif strcmp(channelModel,'gaussian')
 
 elseif strcmp(channelModel,'kronecker')
 
-    a = 0.0;        % correlation coefficient between Tx/Rx antennas
+    a = 0.3;        % correlation coefficient between Tx/Rx antennas
     
     for i = 1:users             % transmitting node
         for j = 1:users            % receiving node

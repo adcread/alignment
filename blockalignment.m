@@ -101,10 +101,10 @@ for stream = 1:cardinality(2,1)
     dofSplitPub{2}(stream) = publicDoF(2)/cardinality(2,1);
 end
                                                                               %%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{1} = [0.2 0.2 0.0];                                               % PARAMETER TO CHANGE 
-dofSplitPri{1} = [0.2 0.2 0.8];                                               %%%%%%%%%%%%%%%%%%%%%%
-dofSplitPub{2} = [0.4 0.4];
-dofSplitPri{2} = [0.4 0.4];
+dofSplitPub{1} = [0.4 0.4 0.0];                                               % PARAMETER TO CHANGE 
+dofSplitPri{1} = [0.4 0.4 1.0];                                               %%%%%%%%%%%%%%%%%%%%%%
+dofSplitPub{2} = [0.2 0.2];
+dofSplitPri{2} = [0.2 0.2];
 
 %% Creation of Source Alphabets
 

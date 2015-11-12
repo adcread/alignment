@@ -46,9 +46,9 @@ end
 
 % message 1 - Transmitter 1 sends rank-3 training sequence
 
-y{1} = sqrt(SNR(1,1)) * H{1,1} * eye(3) * sequence{1};
+y{1} = sqrt(SNR(1,1)) * H{1,1} * eye(3) ;% * sequence{1};
 
-y{2} = sqrt(SNR(1,2)) * H{1,2} * eye(3) * sequence{1};
+y{2} = sqrt(SNR(1,2)) * H{1,2} * eye(3) ;%* sequence{1};
 
 [U{1,1}, lambda{1,1}] = sortEigs(y{1}*y{1}');
 
@@ -62,20 +62,22 @@ V_r{2,1} = U{1,2};
 
 % message 2 - Receiver 2 sends rank-2 training sequence
 
-y{1} = sqrt(SNR(2,1)) * H_r{2,1} * V_r{2,1} * sequence{2};
+y{1} = sqrt(SNR(2,1)) * H_r{2,1} * V_r{2,1}' ;%* sequence{2};
 
-y{2} = sqrt(SNR(2,2)) * H_r{2,2} * V_r{2,1} * sequence{2};
+y{2} = sqrt(SNR(2,2)) * H_r{2,2} * V_r{2,1}' ;%* sequence{2};
 
-[U{2,1}, lambda{2,1}] = sortEigs(y{1}*y{1}');
+[U_r{2,1}, lambda_r{2,1}] = sortEigs(y{1}*y{1}');
 
-lambda{2,1} = 1/(SNR(2,1) * sequenceLength) * lambda{2,1};
+lambda_r{2,1} = 1/(SNR(2,1) * sequenceLength) * lambda_r{2,1};
 
-[U{2,2}, lambda{2,2}] = sortEigs(y{2}*y{2}');
+[U_r{2,2}, lambda_r{2,2}] = sortEigs(y{2}*y{2}');
 
-lambda{2,2,2} = 1/(SNR(2,2) * sequenceLength) * lambda{2,2,2};
+lambda_r{2,2} = 1/(SNR(2,2) * sequenceLength) * lambda_r{2,2};
 
-sigma{2,1,2} = sqrt(lambda{2,1,2});
+sigma_r{2,1} = sqrt(lambda_r{2,1});
 
-x = 1/sqrt(SNR(2,2)) * y{2,2} * pinv(sequence{2});
+s = sigma_r{2,1}(1:rxAntennas(1),1:txAntennas(2));
 
-precoder{1,2,2} = sqrt(postcoder{1,2,1} * pinv(sigma{2,1,2}) * x);
+V_r{2,1} = sqrt(pinv(s)*U_r{2,1}'*receivedSignal{1}*pinv(sequence{2}));
+
+V_r{2,1} = V_r{2,1}';
