@@ -21,7 +21,7 @@ rxCorrelation = arrayCorrelation(rxAntennas,rxDistance);
 % blockLength = sequenceLength * noRepetitions
 % noBlocks = number of blocks sent (allows expectation over ensemble)
 
-sequenceLength = 64;
+sequenceLength = 65;
 
 noRepetitions = 1;
 
@@ -62,18 +62,29 @@ for block = 1:noBlocks
     y{block} = zeros(blockLength*rxAntennas,1);
     z{block} = zeros(blockLength*rxAntennas);
 
+    zadoffChuRoot = 49;
 
-%      sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);
-%     for stream = 1:txAntennas
-%         sequence(:,stream) = lteZadoffChuSeq(1,sequenceLength+1);
-%     end
+    zadoffChuSequence = lteZadoffChuSeq(zadoffChuRoot,sequenceLength);
+    
+    sequenceCrosscorrelation = abs(xcorr(zadoffChuSequence,'coeff'));
+    
+    [sortedCrosscorrelations, streamLags] = sort(sequenceCrosscorrelation(sequenceLength:end),'ascend');
+    
+    % Find the shifts that yield the lowest cross-correlation between
+    % sequences. This is as close to orthogal as ZC sequences will get!
+
+    rootSequence = lteZadoffChuSeq(49,sequenceLength);
+    
+    for stream = 1:txAntennas
+        sequence(:,stream) = circshift(rootSequence,streamLags(stream));
+    end
     % Repeat the sequence to create temporal correlations.
 
     % Calculate mean of Tx correlation matrix
       
-    upperTriangle = chol(inv(txCorrelation));
-    
-    sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
+%     upperTriangle = chol(inv(txCorrelation));
+%     
+%     sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
     
 %     sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);
 

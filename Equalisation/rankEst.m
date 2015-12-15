@@ -1,9 +1,9 @@
 % Estimate the rank using the magnitude of Q's diagonal for M = 1:10, N =
 % 1:10
 
-for txAntennas = 1:6
-    for rxAntennas = 1:6
-        for iter = 1:16
+for txAntennas = 1:3
+    for rxAntennas = 1:3
+        for iter = 1:5
             string = ['Tx = ' num2str(txAntennas) ' Rx = ' num2str(rxAntennas) ' Iteration = ',num2str(iter)];
             display(string);
             KroneckerEstimation;
@@ -14,7 +14,7 @@ for txAntennas = 1:6
                 end
             end
             maxCrosscorr(txAntennas,rxAntennas,iter) = max(abs(temp(blockLength+1:end)))/txAntennas;
-            delta(txAntennas,rxAntennas,iter) = norm((Z - kron(b,rxCorrelation)),'fro');
+            %delta(txAntennas,rxAntennas,iter) = norm((Z - kron(b,rxCorrelation)),'fro');
             estimate(txAntennas,rxAntennas,iter) = mean(abs(diag(b)));
         end
     end
