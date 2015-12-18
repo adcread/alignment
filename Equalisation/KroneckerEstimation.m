@@ -21,7 +21,7 @@ rxCorrelation = arrayCorrelation(rxAntennas,rxDistance);
 % blockLength = sequenceLength * noRepetitions
 % noBlocks = number of blocks sent (allows expectation over ensemble)
 
-sequenceLength = 65;
+%sequenceLength = 128;
 
 noRepetitions = 1;
 
@@ -62,31 +62,47 @@ for block = 1:noBlocks
     y{block} = zeros(blockLength*rxAntennas,1);
     z{block} = zeros(blockLength*rxAntennas);
 
-    zadoffChuRoot = 49;
-
-    zadoffChuSequence = lteZadoffChuSeq(zadoffChuRoot,sequenceLength);
     
-    sequenceCrosscorrelation = abs(xcorr(zadoffChuSequence,'coeff'));
+    %% Create training sequences from Zadoff-Chu sequence (sequenceLength must be odd)
     
-    [sortedCrosscorrelations, streamLags] = sort(sequenceCrosscorrelation(sequenceLength:end),'ascend');
+%     zadoffChuRoot = 49;
+% 
+%     zadoffChuSequence = lteZadoffChuSeq(zadoffChuRoot,sequenceLength);
+%     
+%     sequenceCrosscorrelation = abs(xcorr(zadoffChuSequence,'coeff'));
+%     
+%     [sortedCrosscorrelations, streamLags] = sort(sequenceCrosscorrelation(sequenceLength:end),'ascend');
+%     
+%     % Find the shifts that yield the lowest cross-correlation between
+%     % sequences. This is as close to orthogal as ZC sequences will get!
+% 
+%     rootSequence = lteZadoffChuSeq(49,sequenceLength);
+%     
+%     for stream = 1:txAntennas
+%         sequence(:,stream) = circshift(rootSequence,streamLags(stream));
+%     end
     
-    % Find the shifts that yield the lowest cross-correlation between
-    % sequences. This is as close to orthogal as ZC sequences will get!
-
-    rootSequence = lteZadoffChuSeq(49,sequenceLength);
+    %% Create the training sequence with Walsh-Hadamard sequence (sequenceLength must be power of 2)
     
-    for stream = 1:txAntennas
-        sequence(:,stream) = circshift(rootSequence,streamLags(stream));
-    end
-    % Repeat the sequence to create temporal correlations.
-
+%     rootSequence = hadamard(2^(ceil(log2(sequenceLength))));
+%     
+%     for stream = 1:txAntennas
+%         sequence(:,stream) = rootSequence(:,stream);
+%     end
+        
+    %% Create the training sequence with AWGN, Choleksy decomposition of desired covariance matrix
+    
     % Calculate mean of Tx correlation matrix
       
-%     upperTriangle = chol(inv(txCorrelation));
-%     
-%     sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
+    upperTriangle = chol(inv(txCorrelation));
     
-%     sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);
+    upperTriangle = eye(txAntennas);
+    
+    sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
+    
+    sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);    
+    
+    %% Repeat the sequence to create temporal correlations.
 
     repeatedSequence = repmat(sequence,noRepetitions,1);
 
@@ -95,7 +111,7 @@ for block = 1:noBlocks
     transmittedSequence{block} = repeatedSequence;
     transformedSequence{block} = transmittedSequence{block} * sqrtm(txCorrelation);  
    
-    % pass the signal through the channel
+    %% Pass the signal through the channel
 
     receivedSequence{block} = H*transmittedSequence{block}.'; %+ circSymAWGN(rxAntennas,blockLength,1);
     
