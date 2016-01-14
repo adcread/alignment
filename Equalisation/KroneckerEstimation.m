@@ -1,8 +1,8 @@
 %% Kronecker channel model decomposition
 
-% addpath('C:\PhD\alignment\Channel');
-% addpath('C:\PhD\alignment\Equalisation');
-% addpath('C:\PhD\alignment\General functions');
+addpath('C:\PhD\alignment\Channel');
+addpath('C:\PhD\alignment\Equalisation');
+addpath('C:\PhD\alignment\General functions');
 
 % For each antenna array create the correlation matrix for a uniform 
 % linear array of antennas txDistance wavelengths apart
@@ -22,6 +22,9 @@ rxCorrelation = arrayCorrelation(rxAntennas,rxDistance);
 % noBlocks = number of blocks sent (allows expectation over ensemble)
 
 %sequenceLength = 128;
+
+txCorrelation = eye(txAntennas);
+rxCorrelation = eye(rxAntennas);
 
 noRepetitions = 1;
 
@@ -93,14 +96,24 @@ for block = 1:noBlocks
     %% Create the training sequence with AWGN, Choleksy decomposition of desired covariance matrix
     
     % Calculate mean of Tx correlation matrix
-      
-    upperTriangle = chol(inv(txCorrelation));
+%       
+%     upperTriangle = chol(inv(txCorrelation));
+%     
+%     upperTriangle = eye(txAntennas);
+%     
+%     sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
+%     
+%     sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);    
     
-    upperTriangle = eye(txAntennas);
+    %% Generate a set of Gold codes and use them for training sequence
     
-    sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
+    rootSequence = generateGoldCodes(log2(sequenceLength));
     
-    sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);    
+    sequenceSelection = randsample(log2(sequenceLength),txAntennas);
+    
+    for i = 1:txAntennas
+        sequence(:,i) = rootSequence(:,sequenceSelection(i));
+    end
     
     %% Repeat the sequence to create temporal correlations.
 
@@ -185,7 +198,7 @@ for i = 1:(blockLength)
     end
 end
     
-
+imagesc(abs(b));
 
 % Plot the autocorrelations of the two sequences
 
