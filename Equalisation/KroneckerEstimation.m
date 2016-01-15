@@ -1,8 +1,14 @@
 %% Kronecker channel model decomposition
+if ispc
+    addpath('C:\PhD\alignment\Channel');
+    addpath('C:\PhD\alignment\Equalisation');
+    addpath('C:\PhD\alignment\General functions');
 
-% addpath('C:\PhD\alignment\Channel');
-% addpath('C:\PhD\alignment\Equalisation');
-% addpath('C:\PhD\alignment\General functions');
+elseif ismac
+    addpath('/Users/chris/PhD/alignment/Channel');
+    addpath('/Users/chris/PhD/alignment/Equalisation');
+    addpath('/Users/chris/PhD/alignment/General functions');   
+end
 
 % For each antenna array create the correlation matrix for a uniform 
 % linear array of antennas txDistance wavelengths apart
@@ -84,23 +90,23 @@ for block = 1:noBlocks
     
     %% Create the training sequence with Walsh-Hadamard sequence (sequenceLength must be power of 2)
     
-%     rootSequence = hadamard(2^(ceil(log2(sequenceLength))));
-%     
-%     for stream = 1:txAntennas
-%         sequence(:,stream) = rootSequence(:,stream);
-%     end
+    rootSequence = generateHadamardMatrix(2^(ceil(log2(sequenceLength))));
+    
+    for stream = 1:txAntennas
+        sequence(:,stream) = rootSequence(:,stream);
+    end
         
     %% Create the training sequence with AWGN, Choleksy decomposition of desired covariance matrix
     
     % Calculate mean of Tx correlation matrix
       
-    upperTriangle = chol(inv(txCorrelation));
-    
-    upperTriangle = eye(txAntennas);
-    
-    sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
-    
-    sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);    
+%     upperTriangle = chol(inv(txCorrelation));
+%     
+%     upperTriangle = eye(txAntennas);
+%     
+%     sequence = (upperTriangle' * (randn(txAntennas,sequenceLength) + 1i*randn(txAntennas,sequenceLength))/sqrt(2))';
+%     
+%     sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);    
     
     %% Repeat the sequence to create temporal correlations.
 
@@ -189,28 +195,28 @@ end
 
 % Plot the autocorrelations of the two sequences
 
-% figure;
-% hold on;
-% plot([0:(blockLength)-1],abs(transmittedSequenceCorrelation_ave),'r');
-% plot([0:(blockLength)-1],abs(transformedSequenceCorrelation_ave),'b');
-% 
-% 
-% figure();
-% 
-% subplot(3,1,1)
-% plot(abs(transmittedSequenceAutocorrelation{1}));
-% title('Training Sequence Autocorrelation');
-% 
-% subplot(3,1,2)
-% plot(abs(transformedSequenceAutocorrelation{1}));
-% title('Transformed Sequence Autocorrelation');
-% 
-% subplot(3,1,3)
-% 
-% figure();
-% imagesc(abs(Q));
-% title('Calculated Q Matrix');
-% 
-% figure();
-% imagesc(abs(b));
-% title('Computed b Matrix');
+figure;
+hold on;
+plot([0:(blockLength)-1],abs(transmittedSequenceCorrelation_ave),'r');
+plot([0:(blockLength)-1],abs(transformedSequenceCorrelation_ave),'b');
+
+
+figure();
+
+subplot(3,1,1)
+plot(abs(transmittedSequenceAutocorrelation{1}));
+title('Training Sequence Autocorrelation');
+
+subplot(3,1,2)
+plot(abs(transformedSequenceAutocorrelation{1}));
+title('Transformed Sequence Autocorrelation');
+
+subplot(3,1,3)
+
+figure();
+imagesc(abs(Q));
+title('Calculated Q Matrix');
+
+figure();
+imagesc(abs(b));
+title('Computed b Matrix');
