@@ -1,8 +1,21 @@
 %% Kronecker channel model decomposition
+<<<<<<< HEAD
 
 % addpath('C:\PhD\alignment\Channel');
 % addpath('C:\PhD\alignment\Equalisation');
 % addpath('C:\PhD\alignment\General functions');
+=======
+% if ispc
+%     addpath('C:\PhD\alignment\Channel');
+%     addpath('C:\PhD\alignment\Equalisation');
+%     addpath('C:\PhD\alignment\General functions');
+% 
+% elseif ismac
+%     addpath('/Users/chris/PhD/alignment/Channel');
+%     addpath('/Users/chris/PhD/alignment/Equalisation');
+%     addpath('/Users/chris/PhD/alignment/General functions');   
+% end
+>>>>>>> 74a935a890cce8b4fbee83c687de309e627245e5
 
 % For each antenna array create the correlation matrix for a uniform 
 % linear array of antennas txDistance wavelengths apart
@@ -23,9 +36,6 @@ rxCorrelation = arrayCorrelation(rxAntennas,rxDistance);
 
 %sequenceLength = 128;
 
-txCorrelation = eye(txAntennas);
-rxCorrelation = eye(rxAntennas);
-
 noRepetitions = 1;
 
 blockLength = sequenceLength * noRepetitions;
@@ -39,8 +49,9 @@ H = KroneckerChannel(txAntennas,rxAntennas,txCorrelation,rxCorrelation);
 
 channelPower = 1 ./ svd(H);
 
-% Create array to hold entirety of signal
+% Create arrays to hold entirety of signal
 
+sequence = [];
 transmittedSequence = cell(noBlocks,1);
 transformedSequence = cell(noBlocks,1);
 receivedSequence = cell(noBlocks,1);
@@ -87,7 +98,7 @@ for block = 1:noBlocks
     
     %% Create the training sequence with Walsh-Hadamard sequence (sequenceLength must be power of 2)
     
-%     rootSequence = hadamard(2^(ceil(log2(sequenceLength))));
+%     rootSequence = generateHadamardMatrix(2^(ceil(log2(sequenceLength))));
 %     
 %     for stream = 1:txAntennas
 %         sequence(:,stream) = rootSequence(:,stream);
@@ -96,7 +107,7 @@ for block = 1:noBlocks
     %% Create the training sequence with AWGN, Choleksy decomposition of desired covariance matrix
     
     % Calculate mean of Tx correlation matrix
-%       
+      
 %     upperTriangle = chol(inv(txCorrelation));
 %     
 %     upperTriangle = eye(txAntennas);
@@ -109,10 +120,17 @@ for block = 1:noBlocks
     
     rootSequence = generateGoldCodes(round(log2(sequenceLength)));
     
+<<<<<<< HEAD
     sequenceSelection = randsample(round(log2(sequenceLength)),txAntennas);
     sequence = [];
+=======
+%     for i = 1:txAntennas
+%         sequence(:,i) = rootSequence(:,sequenceSelection(i));
+%     end
+
+>>>>>>> 74a935a890cce8b4fbee83c687de309e627245e5
     for i = 1:txAntennas
-        sequence(:,i) = rootSequence(:,sequenceSelection(i));
+        sequence(:,i) = rootSequence(:,i);
     end
     
     %% Repeat the sequence to create temporal correlations.
@@ -126,7 +144,7 @@ for block = 1:noBlocks
    
     %% Pass the signal through the channel
 
-    receivedSequence{block} = H*transmittedSequence{block}.'; %+ circSymAWGN(rxAntennas,blockLength,1);
+     receivedSequence{block} = H*transmittedSequence{block}.'; %+ circSymAWGN(rxAntennas,blockLength,1);
     
     %vectorise Y to y
 
@@ -197,8 +215,11 @@ for i = 1:(blockLength)
         b(i,j) = trace(Z(((i-1)*m+1):(i*m),((j-1)*n+1):(j*n)).'* rxCorrelation) / trace(rxCorrelation.'*rxCorrelation);
     end
 end
+<<<<<<< HEAD
     
 %imagesc(abs(b));
+=======
+>>>>>>> 74a935a890cce8b4fbee83c687de309e627245e5
 
 % Plot the autocorrelations of the two sequences
 
@@ -223,7 +244,7 @@ end
 % figure();
 % imagesc(abs(Q));
 % title('Calculated Q Matrix');
-% 
+
 % figure();
 % imagesc(abs(b));
 % title('Computed b Matrix');

@@ -93,7 +93,7 @@ function [ goldCodeMatrix ] = generateGoldCodes( order )
     
     for lag=0:length
         shiftedCode = circshift(PNcode2,lag,2);
-        goldCodeMatrix(:,3+lag) = mod(PNcode1+shiftedCode,2).';
+        goldCodeMatrix(:,3+lag) = xor(PNcode1,shiftedCode).';
     end
 
     %Change matrix codes from 1/0 to 1/-1 and show 33 codes in command window.

@@ -1,12 +1,12 @@
 %% Investigate the effect of parameter 'sequenceLength' on rank Estimate.
 
-sequenceLengthParameter = 2.^(1:8);
+sequenceLengthParameter = 2.^(1:7);
 
 txAntennas = 5;
 
 rxAntennas = 5;
 
-noIter = 100;
+noIter = 300;
 
 estimate = [];
 est_mean = [];
