@@ -15,7 +15,7 @@
 
 function [ goldCodeMatrix ] = generateGoldCodes( order )
 
-    length = (2^order);
+    length = (2^order)-1;
 
     % Pick a known preferred pair from lookup table
     switch order
@@ -91,7 +91,7 @@ function [ goldCodeMatrix ] = generateGoldCodes( order )
     goldCodeMatrix(:,1) = PNcode1;
     goldCodeMatrix(:,2) = PNcode2;
     
-    for lag=0:length-2
+    for lag=0:length
         shiftedCode = circshift(PNcode2,lag,2);
         goldCodeMatrix(:,3+lag) = mod(PNcode1+shiftedCode,2).';
     end
