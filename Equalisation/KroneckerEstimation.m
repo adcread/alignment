@@ -1,14 +1,14 @@
 %% Kronecker channel model decomposition
-if ispc
-    addpath('C:\PhD\alignment\Channel');
-    addpath('C:\PhD\alignment\Equalisation');
-    addpath('C:\PhD\alignment\General functions');
-
-elseif ismac
-    addpath('/Users/chris/PhD/alignment/Channel');
-    addpath('/Users/chris/PhD/alignment/Equalisation');
-    addpath('/Users/chris/PhD/alignment/General functions');   
-end
+% if ispc
+%     addpath('C:\PhD\alignment\Channel');
+%     addpath('C:\PhD\alignment\Equalisation');
+%     addpath('C:\PhD\alignment\General functions');
+% 
+% elseif ismac
+%     addpath('/Users/chris/PhD/alignment/Channel');
+%     addpath('/Users/chris/PhD/alignment/Equalisation');
+%     addpath('/Users/chris/PhD/alignment/General functions');   
+% end
 
 % For each antenna array create the correlation matrix for a uniform 
 % linear array of antennas txDistance wavelengths apart
@@ -42,8 +42,9 @@ H = KroneckerChannel(txAntennas,rxAntennas,txCorrelation,rxCorrelation);
 
 channelPower = 1 ./ svd(H);
 
-% Create array to hold entirety of signal
+% Create arrays to hold entirety of signal
 
+sequence = [];
 transmittedSequence = cell(noBlocks,1);
 transformedSequence = cell(noBlocks,1);
 receivedSequence = cell(noBlocks,1);
@@ -90,11 +91,11 @@ for block = 1:noBlocks
     
     %% Create the training sequence with Walsh-Hadamard sequence (sequenceLength must be power of 2)
     
-    rootSequence = generateHadamardMatrix(2^(ceil(log2(sequenceLength))));
-    
-    for stream = 1:txAntennas
-        sequence(:,stream) = rootSequence(:,stream);
-    end
+%     rootSequence = generateHadamardMatrix(2^(ceil(log2(sequenceLength))));
+%     
+%     for stream = 1:txAntennas
+%         sequence(:,stream) = rootSequence(:,stream);
+%     end
         
     %% Create the training sequence with AWGN, Choleksy decomposition of desired covariance matrix
     
@@ -108,6 +109,20 @@ for block = 1:noBlocks
 %     
 %     sequence = circSymAWGN(sequenceLength,txAntennas(1),1);% * diag(channelPower);    
     
+    %% Generate a set of Gold codes and use them for training sequence
+    
+    rootSequence = generateGoldCodes(log2(sequenceLength));
+    
+    sequenceSelection = randsample(log2(sequenceLength),txAntennas);
+    
+%     for i = 1:txAntennas
+%         sequence(:,i) = rootSequence(:,sequenceSelection(i));
+%     end
+
+    for i = 1:txAntennas
+        sequence(:,i) = rootSequence(:,i);
+    end
+    
     %% Repeat the sequence to create temporal correlations.
 
     repeatedSequence = repmat(sequence,noRepetitions,1);
@@ -119,7 +134,7 @@ for block = 1:noBlocks
    
     %% Pass the signal through the channel
 
-    receivedSequence{block} = H*transmittedSequence{block}.'; %+ circSymAWGN(rxAntennas,blockLength,1);
+     receivedSequence{block} = H*transmittedSequence{block}.'; %+ circSymAWGN(rxAntennas,blockLength,1);
     
     %vectorise Y to y
 
@@ -190,33 +205,31 @@ for i = 1:(blockLength)
         b(i,j) = trace(Z(((i-1)*m+1):(i*m),((j-1)*n+1):(j*n)).'* rxCorrelation) / trace(rxCorrelation.'*rxCorrelation);
     end
 end
-    
-
 
 % Plot the autocorrelations of the two sequences
 
-figure;
-hold on;
-plot([0:(blockLength)-1],abs(transmittedSequenceCorrelation_ave),'r');
-plot([0:(blockLength)-1],abs(transformedSequenceCorrelation_ave),'b');
+% figure;
+% hold on;
+% plot([0:(blockLength)-1],abs(transmittedSequenceCorrelation_ave),'r');
+% plot([0:(blockLength)-1],abs(transformedSequenceCorrelation_ave),'b');
+% 
+% 
+% figure();
+% 
+% subplot(3,1,1)
+% plot(abs(transmittedSequenceAutocorrelation{1}));
+% title('Training Sequence Autocorrelation');
+% 
+% subplot(3,1,2)
+% plot(abs(transformedSequenceAutocorrelation{1}));
+% title('Transformed Sequence Autocorrelation');
+% 
+% subplot(3,1,3)
+% 
+% figure();
+% imagesc(abs(Q));
+% title('Calculated Q Matrix');
 
-
-figure();
-
-subplot(3,1,1)
-plot(abs(transmittedSequenceAutocorrelation{1}));
-title('Training Sequence Autocorrelation');
-
-subplot(3,1,2)
-plot(abs(transformedSequenceAutocorrelation{1}));
-title('Transformed Sequence Autocorrelation');
-
-subplot(3,1,3)
-
-figure();
-imagesc(abs(Q));
-title('Calculated Q Matrix');
-
-figure();
-imagesc(abs(b));
-title('Computed b Matrix');
+% figure();
+% imagesc(abs(b));
+% title('Computed b Matrix');

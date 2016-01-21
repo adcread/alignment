@@ -4,5 +4,7 @@ function [ piA ] = pseudoInverse( A )
 
 piA = inv(A'*A)*A';
 
+xcorr(A);
+
 end
 
