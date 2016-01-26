@@ -12,12 +12,12 @@ R = kron(R_tx,R_rx); % Apply Kronecker product to resolve the full matrix
 h = (randn(N * M,1) + 1j * randn(N * M,1))/sqrt(2);
 
 % Either the sqrtm or Choelsky factorisation can be used here.
-W = sqrtm(R); 
-%W = chol(R);
+% W = sqrtm(R); 
+W = chol(R);
 
 % Create Kronecker correlated channel H
 
 w = W * h;
-H(:,:) = reshape(w, [N, M]);
+H = reshape(w, N, M);
 
 end

@@ -3,7 +3,7 @@
 
 noTx = 4;
 noRx = 4;
-sequenceLength = 256;
+sequenceLength = 127;
 
 diagonal = zeros(noTx,noRx,sequenceLength);
 estimates = zeros(noTx,noRx);
@@ -11,18 +11,18 @@ estimates = zeros(noTx,noRx);
 for txAntennas = 1:noTx
     
     for rxAntennas = 1:noRx
-        
+        tic;
         disp(['Performing estimation Tx = ' num2str(txAntennas) ', Rx = ' num2str(rxAntennas) '.']);
         
         % Perform estimation
         KroneckerEstimation;
         
         % Store values of Q's diagonal in matrix for later analysis
-        diagonal(txAntennas,rxAntennas,:) = diag(b);
+        B(txAntennas,rxAntennas,:,:) = b;
         
         % Calculate estimate of txAntennas from this diagonal
         estimates(txAntennas,rxAntennas) = mean(abs(diag(b)));
-        
+        toc;
     end
     
 end
