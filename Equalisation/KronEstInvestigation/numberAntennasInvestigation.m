@@ -13,21 +13,29 @@ for txAntennas = 1:noTx
     for rxAntennas = 1:noRx
         tic;
         disp(['Performing estimation Tx = ' num2str(txAntennas) ', Rx = ' num2str(rxAntennas) '.']);
+        for iter = 1:100
+            disp(['Performing Iteration ' num2str(iter) '.']);
+%         couplingMatrix = zeros(rxAntennas,txAntennas);
+%         couplingMatrix(1,:) = randn(1,txAntennas);
+%         couplingMatrix(:,1) = randn(1,rxAntennas);
+       
         
         % Perform estimation
         KroneckerEstimation;
         
         % Store values of Q's diagonal in matrix for later analysis
-        B(txAntennas,rxAntennas,:,:) = b;
+        B(txAntennas,rxAntennas,iter,:,:) = b;
         
         % Calculate estimate of txAntennas from this diagonal
-        estimates(txAntennas,rxAntennas) = mean(abs(diag(b)));
+        %estimates(txAntennas,rxAntennas) = mean(abs(diag(b)));
+        end
         toc;
+        
     end
     
 end
 
-% Present the results in two figures
+%% Present the results in two figures
 figure();
 
 imagesc(estimates);
@@ -41,7 +49,7 @@ for txAntennas = 1:noTx
         
         subplot(noTx,noRx,(noTx * (txAntennas-1) + rxAntennas));
         
-        histogram(abs(squeeze(diagonal(txAntennas,rxAntennas,:))),20);
+        histogram(abs(diag(squeeze(B(txAntennas,rxAntennas,:,:)))),20);
         title(['Tx = ' num2str(txAntennas) ', Rx = ' num2str(rxAntennas) ', Est = ' num2str(estimates(txAntennas,rxAntennas))]);
     
     end

@@ -1,8 +1,6 @@
-function [ H ] = generateChannel( users, txAntennas, rxAntennas, channelModel )
+function [ H ] = generateChannel( txAntennas, rxAntennas, channelModel, modelArg1, modelArg2, modelArg3 )
 %GENERATECHANNEL Summary of this function goes here
 %   Detailed explanation goes here
-
-H = cell(users,users);
 
 if strcmp(channelModel,'scalar')
 
@@ -11,42 +9,59 @@ elseif strcmp(channelModel, 'czink')
 elseif strcmp(channelModel,'complex')
 
 elseif strcmp(channelModel,'gaussian')
-    
+
     for i = 1:users
         for j = 1:users
-            H{i,j} = normrnd(1,1,txAntennas(j),rxAntennas(i));
+            H = normrnd(1,1,txAntennas,rxAntennas);
         end
     end
 
 elseif strcmp(channelModel,'kronecker')
 
-    a = 0.3;        % correlation coefficient between Tx/Rx antennas
+    % take in the Tx/Rx correlation matrices from the arguments
     
-    for i = 1:users             % transmitting node
-        for j = 1:users            % receiving node
-            R_t = eye(txAntennas(i));
-            R_r = eye(rxAntennas(j));
-            for g = 1:txAntennas(i)
-                R_t = R_t + diag(((a^g)*ones(txAntennas(i)-g,1)),g) + diag(((a^g)*ones(txAntennas(i)-g,1)),-g); % generates diagionals in the antennna covariance matrix 
-            end                                                                                                 % - this should be updated with the Bessel function
-             for g = 1:rxAntennas(j)                                                                            % approach described in http://www.ece.nus.edu.sg/stfpage/elehht/Teaching/EE6832/Lecture%20Notes%5CMultiple%20Antennas%20for%20MIMO%20Communications%20-%20Channel%20Correlation.pdf
-                R_r = R_r + diag(((a^g)*ones(rxAntennas(j)-g,1)),g) + diag(((a^g)*ones(rxAntennas(j)-g,1)),-g);
-            end           
-            H{i,j} = KroneckerChannel(txAntennas(i),rxAntennas(j),R_t,R_r);
-        end
-    end
+    txCorrelation = modelArg1;
+    rxCorrelation = modelArg2;
+    
+    R = kron(txCorrelation,rxCorrelation); % Apply Kronecker product to resolve the full matrix
+    
+    %Generate a long vector form of NTx by NRx channels with N samples (note
+    %the book only uses one sample
+
+    h = (randn(rxAntennas * txAntennas,1) + 1j * randn(rxAntennas * txAntennas,1))/sqrt(2);
+
+    % Either the sqrtm or Choelsky factorisation can be used here.
+     W = sqrtm(R); 
+    %W = chol(R);
+
+    % Create Kronecker correlated channel H
+
+    w = W * h;
+    H = reshape(w, rxAntennas, txAntennas);
+    
+elseif strcmp(channelModel,'weichselberger')
+    
+    % take in the Coupling matrix as argument
+    
+    txCorrelation = modelArg1;
+    rxCorrelation = modelArg2;
+    couplingMatrix = modelArg3;
+    
+    % Create sets of eigenbases for the transmit and receive antennas
+    
+    [txEigenbase, ~, ~] = svd(txCorrelation);
+    [rxEigenbase, ~, ~] = svd(rxCorrelation);
+    
+    H = rxEigenbase * (couplingMatrix .* randn(rxAntennas,txAntennas) + 1j * randn(rxAntennas,txAntennas)) * txEigenbase';
     
 else
     % no operation, return empty cell of channels
     
 end
 
-for i = 1:users
-    for j = 1:users
-        power = trace(H{i,j} * H{i,j}');
-        H{i,j} = H{i,j} * sqrt(txAntennas(i) * rxAntennas(j)) / sqrt(power);
-    end
-end
+    power = trace(H * H');
+    H = H * sqrt(txAntennas * rxAntennas) / sqrt(power);
+
 
 end
 

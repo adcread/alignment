@@ -41,9 +41,11 @@ noBlocks = 256;
 % Use the Kronecker channel model to generate a channel given the
 % correlation matrices
 
-H = KroneckerChannel(txAntennas,rxAntennas,txCorrelation,rxCorrelation);
+H = [];
 
-channelPower = 1 ./ svd(H);
+H = generateChannel(txAntennas,rxAntennas,'kronecker',txCorrelation,rxCorrelation);
+
+% H = generateChannel(txAntennas,rxAntennas,'weichselberger',couplingMatrix);
 
 % Create arrays to hold entirety of signal
 
@@ -69,6 +71,8 @@ Q = cell(noBlocks,1);
 for block = 1:noBlocks
     
     transmittedSequence{block} = zeros((blockLength), txAntennas);
+    receivedSequence{block} = zeros(rxAntennas,blockLength);
+    
     y{block} = zeros(blockLength*rxAntennas,1);
     z{block} = zeros(blockLength*rxAntennas);
 
@@ -117,7 +121,7 @@ for block = 1:noBlocks
     rootSequence = generateGoldCodes(round(log2(sequenceLength)));
     
 
-    sequenceSelection = randsample(4:(sequenceLength+2),txAntennas);
+%    sequenceSelection = randsample(4:(sequenceLength+2),txAntennas);
     sequence = zeros(sequenceLength,txAntennas);
     for i = 1:txAntennas
         sequence(:,i) = rootSequence(:,sequenceSelection(i));
@@ -134,7 +138,7 @@ for block = 1:noBlocks
    
     %% Pass the signal through the channel
 
-     receivedSequence{block} = SNR * H * transmittedSequence{block}.'; %+ circSymAWGN(rxAntennas,blockLength,1);
+    receivedSequence{block} = sqrt(SNR) * H * transmittedSequence{block}.' + circSymAWGN(rxAntennas,blockLength,1);
     
     %vectorise Y to y
 
