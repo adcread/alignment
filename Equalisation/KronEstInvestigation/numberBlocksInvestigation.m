@@ -1,41 +1,53 @@
 %% Investigate the effect of parameter 'sequenceLength' on rank Estimate.
 
-addpath('/Users/chris/PhD/alignment/Equalisation');
+%addpath('/Users/chris/PhD/alignment/Equalisation');
 
-blockNumberParameter = 2.^(1:10);
+noBlockParameter = 2.^(1:9);
 
-sequenceLength = 64;
+sequenceLength = 127;
+rootSequence = generateGoldCodes(round(log2(sequenceLength)));
 
 txAntennas = 5;
 
 rxAntennas = 5;
 
-noIter = 100;
+SNR = 100;
+
+noIter = 1000;
 
 est_mean = [];
 temp = [];
 maxCrosscorr = [];
-B = cell(length(blockNumberParameter),noIter);
+B = cell(length(noBlockParameter),noIter);
 
-estimate = zeros(length(blockNumberParameter),noIter);
+estimate = zeros(length(noBlockParameter),noIter);
 
-for iteration = 1:length(blockNumberParameter)
+for iterNoBlocks = 1:length(noBlockParameter)
     
-    noBlocks = blockNumberParameter(iteration);
+    noBlocks = noBlockParameter(iterNoBlocks);
        
-    for iter = 1:noIter
-        display([num2str(blockNumberParameter(iteration)) ' ' num2str(iter)]);
+    for iterDistribution = 1:noIter
+        display(['Number of blocks: ' num2str(noBlockParameter(iterNoBlocks)) ' Iteration: ' num2str(iterDistribution)]);
         KroneckerEstimation;
-        B{iteration,iter} = b;
-        estimate(iteration,iter) = mean(abs(diag(b)));
+        B{iterNoBlocks,iterDistribution} = b;
+        estimate(iterNoBlocks,iterDistribution) = mean(abs(diag(b)));
     end
     
 end
-
+%%
 figure;
 
-for imageIndex = 1:10
-    subplot(4,4,imageIndex);
-    histogram(estimate(imageIndex,:));
+for imageIndex = 1:length(noBlockParameter)
+    means(imageIndex) = mean(estimate(imageIndex,:)/SNR);
+    vars(imageIndex) = var(estimate(imageIndex,:)/SNR);
+    subplot(3,3,imageIndex);
+    %histogram(estimate(imageIndex,:)/SNR);
+    histfit(estimate(imageIndex,:)/SNR);
+    xlim([means(imageIndex)-6*sqrt(vars(imageIndex)) means(imageIndex)+6*sqrt(vars(imageIndex))]);
+    ylim([0 150]);
+    hold on;
+    vardist = var(estimate(imageIndex,:)/SNR);
+    text(means(imageIndex),140,['\mu = ' num2str(means(imageIndex)) ', \sigma^2 = ' num2str(vars(imageIndex))],'HorizontalAlignment','center');
+    %plot(txAntennas-3*(sqrt(vardist)):0.05:txAntennas+3*(sqrt(vardist)),normpdf(txAntennas-3*(sqrt(vardist)):0.05:txAntennas+3*(sqrt(vardist)),mean(estimate(imageIndex,:)/SNR),vardist),'r');
     title([num2str(2^imageIndex) ' Sequences']);
 end

@@ -36,8 +36,6 @@ noRepetitions = 1;
 
 blockLength = sequenceLength * noRepetitions;
 
-noBlocks = 256;
-
 % Use the Kronecker channel model to generate a channel given the
 % correlation matrices
 
@@ -118,10 +116,10 @@ for block = 1:noBlocks
     
     %% Generate a set of Gold codes and use them for training sequence
     
-    rootSequence = generateGoldCodes(round(log2(sequenceLength)));
+%    rootSequence = generateGoldCodes(round(log2(sequenceLength)));
     
 
-%    sequenceSelection = randsample(4:(sequenceLength+2),txAntennas);
+    sequenceSelection = randsample(4:(sequenceLength+2),txAntennas);
     sequence = zeros(sequenceLength,txAntennas);
     for i = 1:txAntennas
         sequence(:,i) = rootSequence(:,sequenceSelection(i));
