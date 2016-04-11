@@ -13,7 +13,7 @@ rxAntennas = 5;
 
 SNR = 100;
 
-noIter = 1000;
+noIter = 100;
 
 est_mean = [];
 temp = [];

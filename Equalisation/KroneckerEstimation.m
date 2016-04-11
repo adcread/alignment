@@ -20,7 +20,7 @@ txCorrelation = arrayCorrelation(txAntennas,txDistance);
 % txCorrelation = eye(txAntennas);
 
 % rxAntennas = 3;
-rxDistance = 0.3;
+rxDistance = 0.4;
 rxCorrelation = arrayCorrelation(rxAntennas,rxDistance);
 % rxCorrelation = eye(rxAntennas);
 
@@ -30,7 +30,7 @@ rxCorrelation = arrayCorrelation(rxAntennas,rxDistance);
 % blockLength = sequenceLength * noRepetitions
 % noBlocks = number of blocks sent (allows expectation over ensemble)
 
-%sequenceLength = 128;
+% sequenceLength = 63;
 
 noRepetitions = 1;
 
@@ -131,12 +131,12 @@ for block = 1:noBlocks
 
     % add the repeated sequence to the transmitted sequence array.
     
-    transmittedSequence{block} = repeatedSequence;
+    transmittedSequence{block} = repeatedSequence;% * pinv(sqrtm(txCorrelation));
     transformedSequence{block} = transmittedSequence{block} * sqrtm(txCorrelation);  
    
     %% Pass the signal through the channel
 
-    receivedSequence{block} = sqrt(SNR) * H * transmittedSequence{block}.' + circSymAWGN(rxAntennas,blockLength,1);
+    receivedSequence{block} = SNR/txAntennas * H * transmittedSequence{block}.' + circSymAWGN(rxAntennas,blockLength,1);
     
     %vectorise Y to y
 
@@ -145,31 +145,10 @@ for block = 1:noBlocks
     % Compute the covariance matrix of the received signal
 
     z{block} = y{block} * y{block}';
-
-    % Compute the autocorrelation over the ensemble of blocks
-   
-%     for stream = 1:txAntennas
-%         transmittedSequenceAutocorrelation{block}(stream,:) = xcorr(transmittedSequence{block}(:,stream));
-%         transformedSequenceAutocorrelation{block}(stream,:) = xcorr(transformedSequence{block}(:,stream));
-        
-%         transmitNormalisationFactor = max(transmittedSequenceAutocorrelation{block}(stream,:));
-%         transformNormalisationFactor = max(transformedSequenceAutocorrelation{block}(stream,:));
-        
-%         transmittedSequenceAutocorrelation{block}(stream,:) = transmittedSequenceAutocorrelation{block}(stream,:)/transmitNormalisationFactor;
-%         transformedSequenceAutocorrelation{block}(stream,:) = transformedSequenceAutocorrelation{block}(stream,:)/transformNormalisationFactor;
-        
-%         for otherstream = 1:txAntennas
-%             transmittedSequenceCrosscorrelation{block}(stream,otherstream,:) = xcorr(transmittedSequence{block}(:,stream),transmittedSequence{block}(:,otherstream))/transmitNormalisationFactor;
-%             transformedSequenceCrosscorrelation{block}(stream,otherstream,:) = xcorr(transformedSequence{block}(:,stream),transformedSequence{block}(:,otherstream))/transformNormalisationFactor;
-%         end            
-%     end
+    
+    Q{block} = transmittedSequence{block} * txCorrelation * transmittedSequence{block}';
 
 end
-
-%% Work out the correlations over the ensemble
-
-%  transmittedSequenceCorrelation_ave = ensembleAve(transmittedSequenceCrosscorrelation);
-%  transformedSequenceCorrelation_ave = ensembleAve(transformedSequenceCrosscorrelation);
 
 %% Calculate Q, the original sequence autocorrelation matrix
 
@@ -201,39 +180,17 @@ b = zeros(blockLength);
 
 % Method for calculating b comes from [79] - seperable least squares
 % framework (theorem 3)
-
-for i = 1:(blockLength)
-    for j = 1:(blockLength)
-        b(i,j) = trace(Z(((i-1)*m+1):(i*m),((j-1)*n+1):(j*n)).'* rxCorrelation) / trace(rxCorrelation'*rxCorrelation);
-    end
-end
     
-%imagesc(abs(b));
 
-% Plot the autocorrelations of the two sequences
+if (statisticsFlag)
+    for i = 1:(blockLength)
+        for j = 1:(blockLength)
+            b(i,j) = trace(Z(((i-1)*m+1):(i*m),((j-1)*n+1):(j*n))'* rxCorrelation) / trace(rxCorrelation'*rxCorrelation);
+        end
+    end    
+else
+    for i = 1:(blockLength)
+        b(i,i) = trace(Z(((i-1)*m+1):(i*m),((i-1)*n+1):(i*n))'* rxCorrelation) / trace(rxCorrelation'*rxCorrelation);
+    end    
+end
 
-% figure;
-% hold on;
-% plot([0:(blockLength)-1],abs(transmittedSequenceCorrelation_ave),'r');
-% plot([0:(blockLength)-1],abs(transformedSequenceCorrelation_ave),'b');
-% 
-% 
-% figure();
-% 
-% subplot(3,1,1)
-% plot(abs(transmittedSequenceAutocorrelation{1}));
-% title('Training Sequence Autocorrelation');
-% 
-% subplot(3,1,2)
-% plot(abs(transformedSequenceAutocorrelation{1}));
-% title('Transformed Sequence Autocorrelation');
-% 
-% subplot(3,1,3)
-% 
-% figure();
-% imagesc(abs(Q));
-% title('Calculated Q Matrix');
-
-% figure();
-% imagesc(abs(b));
-% title('Computed b Matrix');
